@@ -31,9 +31,9 @@ class IdlType(Enum):
     PUBLIC_KEY = None
     DEFINED = Variant(field=str)
 
-    OPTION = Variant(field=object)  # "IdlType"
-    VEC = Variant(field=object)  # IdlType
-    ARRAY = Variant(field=Tuple[object, int])  # IdlType
+    OPTION = Variant(field=Delayed["IdlType"])
+    VEC = Variant(field=Delayed["IdlType"])
+    ARRAY = Variant(field=Tuple[Delayed["IdlType"], int])
 
 
 @pod_json
@@ -146,7 +146,7 @@ class IdlAccountItem(Enum):  # here
             return IdlAccountItem.IDL_ACCOUNTS(field)
         else:
             field = IdlAccount.from_json(raw)
-            return IdlAccountItem.IDL_ACCOUNTS(field)
+            return IdlAccountItem.IDL_ACCOUNT(field)
 
     @classmethod
     def _to_json(cls, instance):
