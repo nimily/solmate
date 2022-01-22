@@ -240,7 +240,7 @@ class CodeGen:
 
         return {}
 
-    def generate_code(self):
+    def generate_code(self, check_missing_types=False):
         self._editors = {}
         self._generate_types()
         self._generate_constants()
@@ -250,12 +250,12 @@ class CodeGen:
         self._generate_errors()
         self._generate_state()
 
-        # TODO uncomment the following lines
-        # undefined_types = self._expected_types.difference(self._defined_types)
-        # if undefined_types:
-        #     raise RuntimeError(
-        #         f"The following types are used but not defined: {undefined_types}"
-        #     )
+        if check_missing_types:
+            undefined_types = self._expected_types.difference(self._defined_types)
+            if undefined_types:
+                raise RuntimeError(
+                    f"The following types are used but not defined: {undefined_types}"
+                )
 
     def save_modules(self):
         for editor in self._editors.values():
