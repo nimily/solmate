@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 
 from typing import List, Dict
 from pathlib import Path
@@ -76,6 +77,9 @@ class CodeEditor:
         self._shift_lock_boundaries(start, len(new_lines) - (stop - start))
         if name is not None:
             self.set_lock(name, start, start + len(new_lines), check=False)
+
+    def __contains__(self, key):
+        return key in self._locks
 
     def _shift_lock_boundaries(self, origin, diff):
         locks = {}
@@ -198,6 +202,40 @@ class CodeEditor:
 
         with open(path, "w") as file:
             file.write(self.get_source_code())
+
+
+class ImportCollector:
+    def __init__(self):
+        self._imports = set()
+        self._from_imports = defaultdict(set)
+
+    def add_import(self, import_clause, as_clause=None):
+        if as_clause is not None:
+            import_clause += " as " + as_clause
+        self._imports.add(import_clause)
+
+    def add_from_import(self, from_clause, import_clause, as_clause=None):
+        if as_clause is not None:
+            import_clause += " as " + as_clause
+
+        self._from_imports[from_clause].add(import_clause)
+
+    def as_source_code(self):
+        code = []
+
+        for import_clause in self._imports:
+            code.append(f"import {import_clause}\n")
+
+        if self._imports and self._from_imports:
+            code.append("\n")
+
+        for from_clause, import_clauses in self._from_imports.items():
+            joined_import_clause = ", ".join(import_clauses)
+            code.append(f"from {from_clause} import {joined_import_clause}\n")
+
+        code.append("\n")
+
+        return code
 
 
 def cli():

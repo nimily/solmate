@@ -1,7 +1,7 @@
 from itertools import chain
 from typing import Optional, Tuple
 
-from pod import pod_json, Vec, Enum, Variant, named_fields, Default, Delayed
+from pod import pod_json, Vec, Enum, Variant, named_fields, Default, ForwardRef
 from pod.types.enum import ENUM_TAG_NAME, ENUM_TAG_NAME_MAP
 from pod.json import POD_OPTIONS_RENAME
 
@@ -31,9 +31,9 @@ class IdlType(Enum):
     PUBLIC_KEY = None
     DEFINED = Variant(field=str)
 
-    OPTION = Variant(field=Delayed["IdlType"])
-    VEC = Variant(field=Delayed["IdlType"])
-    ARRAY = Variant(field=Tuple[Delayed["IdlType"], int])
+    OPTION = Variant(field="IdlType")
+    VEC = Variant(field="IdlType")
+    ARRAY = Variant(field=Tuple[ForwardRef["IdlType"], int])
 
 
 @pod_json
@@ -129,7 +129,7 @@ class IdlAccounts:
     __enum_options__ = {ENUM_TAG_NAME_MAP: camel_case}
 
     name: str
-    accounts: Vec[Delayed["IdlAccountItem"]]
+    accounts: Vec["IdlAccountItem"]
 
 
 @pod_json
