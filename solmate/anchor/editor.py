@@ -9,19 +9,68 @@ LOCK_FOOTER = "# LOCK-END"
 LOCK_WARNING = "]: DON'T MODIFY"
 
 
+class ImportCollector:
+    def __init__(self):
+        self._imports = set()
+        self._from_imports = defaultdict(set)
+
+    def __bool__(self):
+        return bool(self._imports) or bool(self._from_imports)
+
+    def add_import(self, import_clause, as_clause=None):
+        if as_clause is not None:
+            import_clause += " as " + as_clause
+        self._imports.add(import_clause)
+
+    def add_from_import(self, from_clause, import_clause, as_clause=None):
+        if as_clause is not None:
+            import_clause += " as " + as_clause
+
+        self._from_imports[from_clause].add(import_clause)
+
+    def as_source_code(self):
+        code = []
+
+        for import_clause in self._imports:
+            code.append(f"import {import_clause}\n")
+
+        if self._imports:
+            code.append("\n")
+
+        for from_clause, import_clauses in self._from_imports.items():
+            if len(import_clauses) == 1:
+                code.append(f"from {from_clause} import {list(import_clauses)[0]}\n")
+            else:
+                code.append(f"from {from_clause} import (\n")
+                for clause in sorted(list(import_clauses)):
+                    code.append(f"    {clause},\n")
+                code.append(")\n")
+
+        if self._from_imports:
+            code.append("\n")
+
+        return code
+
+
 class CodeEditor:
     _filepath: str
     _lines: List[str]
     _locks: Dict[str, slice]
+    _imports: ImportCollector
 
     def __init__(self, filepath):
         self._filepath = filepath
         self._lines = []
         self._locks = {}
+        self._imports = ImportCollector()
 
     @property
     def locks(self):
         return self._locks.copy()
+
+    @property
+    def imports(self):
+        return self._imports
 
     def _to_slice(self, key):
         if isinstance(key, str):
@@ -135,9 +184,30 @@ class CodeEditor:
 
     @staticmethod
     def _get_indent(line: str):
-        n_blanks = len(line) - len(line.lstrip())
+        stripped = line.lstrip()
+        if not stripped:
+            return ""
+
+        n_blanks = len(line) - len(stripped)
 
         return line[:n_blanks]
+
+    def set_with_lock(
+        self, name, lines, header_indent=None, footer_indent=None, lineno=None
+    ):
+        existed = name in self
+        code = self.wrap_with_lock(
+            name,
+            lines,
+            header_indent=header_indent,
+            footer_indent=footer_indent,
+        )
+        if lineno is None:
+            self[name] = code
+        else:
+            self[lineno:lineno] = code
+
+        return not existed
 
     @staticmethod
     def wrap_with_lock(name, lines, header_indent=None, footer_indent=None):
@@ -158,7 +228,24 @@ class CodeEditor:
 
         return [header] + lines + [footer]
 
+    def add_import(self, import_clause, as_clause=None):
+        self._imports.add_import(import_clause, as_clause)
+
+    def add_from_import(self, from_clause, import_clause, as_clause=None):
+        self._imports.add_from_import(from_clause, import_clause, as_clause)
+
     def get_source_code(self):
+        imports = self._imports.as_source_code()
+
+        if "imports" in self:
+            self.set_with_lock("imports", imports)
+        elif self._imports:
+            post_new_line = len(self._lines) > 0
+            self.set_with_lock("imports", imports, lineno=0)
+
+            if post_new_line:
+                self.add_lines("\n", lineno=len(imports) + 2)
+
         return "".join(self._lines)
 
     def infer_locks(self):
@@ -202,56 +289,3 @@ class CodeEditor:
 
         with open(path, "w") as file:
             file.write(self.get_source_code())
-
-
-class ImportCollector:
-    def __init__(self):
-        self._imports = set()
-        self._from_imports = defaultdict(set)
-
-    def add_import(self, import_clause, as_clause=None):
-        if as_clause is not None:
-            import_clause += " as " + as_clause
-        self._imports.add(import_clause)
-
-    def add_from_import(self, from_clause, import_clause, as_clause=None):
-        if as_clause is not None:
-            import_clause += " as " + as_clause
-
-        self._from_imports[from_clause].add(import_clause)
-
-    def as_source_code(self):
-        code = []
-
-        for import_clause in self._imports:
-            code.append(f"import {import_clause}\n")
-
-        if self._imports and self._from_imports:
-            code.append("\n")
-
-        for from_clause, import_clauses in self._from_imports.items():
-            joined_import_clause = ", ".join(import_clauses)
-            code.append(f"from {from_clause} import {joined_import_clause}\n")
-
-        code.append("\n")
-
-        return code
-
-
-def cli():
-    ce = CodeEditor("/Users/nimily/Workspaces/python/solmate/solmate/anchor/test.py")
-    ce.load()
-    ce["taghi"] = []
-    ce["bbb"] = []
-    # ce["aaa"] = []
-    # del ce["taghi"]
-    ce.add_lines("hello\n", "bye\n")
-    print("nima" in ce.locks)
-    ce["nima"] = ["test\n", "success\n"]
-    ce["nima"] = ce.wrap_with_lock("nima", ["line a\n", "line b\n"])
-    print(ce.get_source_code())
-    print(ce.locks)
-    print("nima" in ce.locks)
-    # ce.save()
-    # print(ce[5:7])
-    # print("".join(ce._lines[ce._locks["bbb"]]))

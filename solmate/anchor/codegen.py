@@ -1,14 +1,10 @@
 import os
-import re
-from collections import defaultdict
+
 from typing import Dict, Iterable, Set
 
 from .editor import CodeEditor, ImportCollector
 from .idl import Idl, IdlTypeDefinition, IdlTypeDefinitionTy, IdlType, EnumFields
-
-
-def camel_to_snake(name):
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+from .utils import camel_to_snake, pascal_to_snake
 
 
 class CodeGen:
@@ -28,7 +24,7 @@ class CodeGen:
         self._defined_types = set()
         self._expected_types = set()
 
-    def _get_editor(self, name, is_file=True):
+    def _get_editor(self, name, is_file=True) -> CodeEditor:
         if name not in self._editors:
             subpath = name.replace(".", "/")
             if not is_file:
@@ -102,10 +98,12 @@ class CodeGen:
         type_definitions = self._get_type_definitions()
 
         self._defined_types.update(self.external_types)
-        module_imports = ImportCollector()
+        module_editor = self._get_editor(f"{self.root_module}.types", is_file=False)
         for type_def in type_definitions:
-            imports = ImportCollector()
-            imports.add_from_import("pod", "pod")
+            editor = self._get_editor(
+                f"{self.root_module}.types.{camel_to_snake(type_def.name)}"
+            )
+            editor.add_from_import("pod", "pod")
 
             class_code = ["@pod\n"]
             if type_def.type == IdlTypeDefinitionTy.STRUCT:
@@ -114,7 +112,7 @@ class CodeGen:
                 for field in type_def.type.field.fields:
                     field_name = camel_to_snake(field.name)
                     field_type = self._get_type_as_string(
-                        field.type, imports, within_types=True
+                        field.type, editor, within_types=True
                     )
                     class_code.append(f"    {field_name}: {field_type}\n")
                     has_field = True
@@ -123,27 +121,27 @@ class CodeGen:
                     class_code += ["    pass\n"]
 
             else:
-                imports.add_from_import("pod", "Enum")
+                editor.add_from_import("pod", "Enum")
                 class_code += [f"class {type_def.name}(Enum):\n"]
-                has_variant = False
-                for variant in type_def.type.field.variants:
+                variants = type_def.type.field.variants
+                for variant in variants:
                     if variant.fields is None:
                         variant_type = "None"
                     elif variant.fields == EnumFields.NAMED:
-                        imports.add_from_import("pod", "Variant")
-                        imports.add_from_import("pod", "named_fields")
+                        editor.add_from_import("pod", "Variant")
+                        editor.add_from_import("pod", "named_fields")
                         # TODO complete me
                         named_fields = variant.fields.field
                         raise NotImplementedError()
                     else:
-                        imports.add_from_import("pod", "Variant")
+                        editor.add_from_import("pod", "Variant")
 
                         tuple_fields = []
                         for field_type in variant.fields.field:
                             tuple_fields.append(
                                 self._get_type_as_string(
                                     field_type,
-                                    imports,
+                                    editor,
                                     within_types=True,
                                     explicit_forward_ref=True,
                                 )
