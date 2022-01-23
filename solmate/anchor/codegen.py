@@ -20,23 +20,27 @@ from .utils import camel_to_snake, pascal_to_snake
 
 class CodeGen:
     idl: Idl
+    program_id: Union[PublicKey, str]
     root_module: str
     source_path: str
     external_types: Dict[str, str]
-    default_accounts: Dict[str, Union[str, PublicKey]]
+    default_accounts: Dict[str, Union[PublicKey, str]]
     _editors: Dict[str, CodeEditor]
     _defined_types: Set[str]
     _expected_types: Set[str]
+    _package_editor: CodeEditor
 
     def __init__(
         self,
         idl,
+        program_id,
         root_module,
         source_path,
         external_types=None,
         default_accounts=None,
     ):
         self.idl = idl
+        self.program_id = program_id
         self.root_module = root_module
         self.source_path = source_path
 
@@ -324,7 +328,8 @@ class CodeGen:
                 else:
                     raise NotImplementedError()
             code.append("    ]\n")
-            code.append("    keys.extend(remaining_accounts)\n")
+            code.append("    if remaining_accounts is not None:\n")
+            code.append("        keys.extend(remaining_accounts)\n")
             code.append("\n")
 
             # generating data
@@ -339,9 +344,10 @@ class CodeGen:
             code.append("\n")
 
             # generating the return statement
+            editor.add_import(self.root_module)
             code.append("    return TransactionInstruction(\n")
             code.append("        keys=keys,\n")
-            code.append("        program_id=...,\n")  # TODO think about program id
+            code.append(f"        program_id={self.root_module}.PROGRAM_ID,\n")
             code.append("        data=buffer.getvalue(),\n")
             code.append("    )\n")
             code.append("\n")
@@ -372,6 +378,13 @@ class CodeGen:
         print("Skipping state...")
 
     def generate_code(self, check_missing_types=False):
+        self._package_editor = self._get_editor(self.root_module, is_file=False)
+
+        self._package_editor.add_from_import("solana.publickey", "PublicKey")
+        self._package_editor.set_with_lock(
+            "program_id", [f'PROGRAM_ID = PublicKey("{self.program_id}")\n']
+        )
+
         self._generate_types()
         self._generate_constants()
         self._generate_accounts()
@@ -398,6 +411,7 @@ def cli():
         root = "/Users/nimily/Workspaces/python/solmate"
         codegen = CodeGen(
             idl,
+            "23423423423434",
             f"dexterity.{protocol}",
             f"{root}",
             default_accounts={
