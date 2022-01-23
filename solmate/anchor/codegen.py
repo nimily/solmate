@@ -236,7 +236,30 @@ class CodeGen:
         editor.set_with_lock("constants", code)
 
     def _generate_accounts(self):
-        return {}
+        if not self.idl.accounts:
+            return
+
+        editor = self._get_editor(f"{self.root_module}.accounts")
+        code = []
+
+        editor.add_from_import("pod", "pod")
+        editor.add_from_import("solmate.anchor", "Discriminant")
+        editor.add_from_import("solmate.anchor", "Variant")
+        code.extend(
+            [
+                "@pod\n",
+                "class Accounts(Discriminant):\n",
+            ]
+        )
+        for account in self.idl.accounts:
+            editor.add_from_import(f"{self.root_module}.types", account.name)
+
+            variant_name = pascal_to_snake(account.name).upper()
+            variant_type = f"Variant(field={account.name})"
+            code += [f"    {variant_name} = {variant_type}\n"]
+
+        if editor.set_with_lock("accounts", code):
+            self._add_packing_methods(editor)
 
     def _generate_instructions(self):
         return {}

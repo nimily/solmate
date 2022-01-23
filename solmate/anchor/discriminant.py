@@ -3,6 +3,7 @@ import pod
 
 class Variant(pod.Variant):
     def assign_value(self):
+        # FIXME assign_value should use sha256 hash?!
         self.value = hash(self.name.lower())
 
 
