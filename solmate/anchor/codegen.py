@@ -223,6 +223,7 @@ class CodeGen:
             )
 
             self._defined_types.add(type_def.name)
+            self._package_editor.add_import(f"{self.root_module}.types", "types")
 
     def _generate_constants(self):
         if not self.idl.constants:
@@ -238,6 +239,7 @@ class CodeGen:
             code.append(f"{const.name}: {const_type} = {const.value}\n")
 
         editor.set_with_lock("constants", code)
+        self._package_editor.add_import(f"{self.root_module}.constants", "constants")
 
     def _generate_accounts(self):
         if not self.idl.accounts:
@@ -264,6 +266,8 @@ class CodeGen:
 
         if editor.set_with_lock("accounts", code):
             self._add_packing_methods(editor)
+
+        self._package_editor.add_import(f"{self.root_module}.accounts", "accounts")
 
     def _generate_instructions(self):
         if not self.idl.instructions:
@@ -355,6 +359,8 @@ class CodeGen:
             editor.set_with_lock(f"instruction({instr_name})", code)
 
             module_editor.add_from_import(f".{instr_name}", instr_name)
+
+        self._package_editor.add_import(f"{self.root_module}.instructions", "instructions")
 
     def _generate_events(self):
         if not self.idl.events:
