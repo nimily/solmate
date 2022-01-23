@@ -342,6 +342,8 @@ class CodeGen:
             code.append("    )\n")
             code.append("\n")
 
+            editor.set_with_lock(f"instruction({instr_name})", code)
+
             module_editor.add_from_import(f".{instr_name}", instr_name)
 
     def _generate_events(self):
