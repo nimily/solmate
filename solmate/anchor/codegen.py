@@ -304,6 +304,9 @@ class CodeGen:
                     f'    {account_name}: PublicKey = PublicKey("{default_account}"),\n'
                 )
 
+            editor.add_from_import("typing", "Optional")
+            editor.add_from_import("typing", "List")
+            code.append("    remaining_accounts: Optional[List[AccountMeta]] = None,\n")
             code.append(f"):\n")
 
             # generating account metas
@@ -321,6 +324,7 @@ class CodeGen:
                 else:
                     raise NotImplementedError()
             code.append("    ]\n")
+            code.append("    keys.extend(remaining_accounts)\n")
             code.append("\n")
 
             # generating data
