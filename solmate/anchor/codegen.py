@@ -262,7 +262,87 @@ class CodeGen:
             self._add_packing_methods(editor)
 
     def _generate_instructions(self):
-        return {}
+        if not self.idl.instructions:
+            return
+
+        module_editor = self._get_editor(
+            f"{self.root_module}.instructions", is_file=False
+        )
+        for instr in self.idl.instructions:
+            instr_name = camel_to_snake(instr.name)
+            editor = self._get_editor(f"{self.root_module}.instructions.{instr_name}")
+            editor.add_from_import("solana.publickey", "PublicKey")
+
+            # generating the declaration
+            code = [f"def {instr_name}(\n"]
+
+            accounts_with_defaults = []
+            for account in instr.accounts:
+                account_name = camel_to_snake(account.field.name)
+                if (
+                    account.field.name not in self.default_accounts
+                    and account_name not in self.default_accounts
+                ):
+                    code.append(f"    {account_name}: PublicKey,\n")
+                else:
+                    accounts_with_defaults.append(account)
+
+            for arg in instr.args:
+                arg_type = self._get_type_as_string(
+                    arg.type, editor, within_types=False
+                )
+                code.append(f"    {arg.name}: {arg_type},\n")
+
+            for account in accounts_with_defaults:
+                account_name = camel_to_snake(account.field.name)
+                if account_name in self.default_accounts:
+                    default_account = self.default_accounts[account_name]
+                else:
+                    default_account = self.default_accounts[account.field.name]
+
+                code.append(
+                    f'    {account_name}: PublicKey = PublicKey("{default_account}"),\n'
+                )
+
+            code.append(f"):\n")
+
+            # generating account metas
+            editor.add_from_import("solana.transaction", "AccountMeta")
+            editor.add_from_import("solana.transaction", "TransactionInstruction")
+            code.append("    keys = [\n")
+            for account in instr.accounts:
+                if account == IdlAccountItem.IDL_ACCOUNT:
+                    name = camel_to_snake(account.field.name)
+                    is_signer = account.field.is_signer
+                    is_writable = account.field.is_mut
+                    code.append(
+                        f"        AccountMeta(pubkey={name}, is_signer={is_signer}, is_writable={is_writable}),\n"
+                    )
+                else:
+                    raise NotImplementedError()
+            code.append("    ]\n")
+            code.append("\n")
+
+            # generating data
+            editor.add_from_import("io", "BytesIO")
+            code.append("    buffer = BytesIO()\n")
+            # TODO generate instruction code
+            for arg in instr.args:
+                arg_type = self._get_type_as_string(
+                    arg.type, editor, within_types=False
+                )
+                code.append(f"    buffer.write({arg_type}.to_bytes({arg.name}))\n")
+            code.append("\n")
+
+            # generating the return statement
+            code.append("    return TransactionInstruction(\n")
+            code.append("        keys=keys,\n")
+            code.append("        program_id=...,\n")  # TODO think about program id
+            code.append("        data=buffer.getvalue(),\n")
+            code.append("    )\n")
+            code.append("\n")
+
+            module_editor.add_from_import(f".{instr_name}", instr_name)
 
     def _generate_events(self):
         return {}
@@ -298,4 +378,17 @@ class CodeGen:
 
 
 def cli():
-    pass
+    for protocol in ("dex", "instruments", "noop_risk_engine"):
+        idl = Idl.from_json_file(f"/Users/nimily/tmp/idl/{protocol}.json")
+        root = "/Users/nimily/Workspaces/python/solmate"
+        codegen = CodeGen(
+            idl,
+            f"dexterity.{protocol}",
+            f"{root}",
+            default_accounts={
+                "systemProgram": SYS_PROGRAM_ID,
+                "token_program": TOKEN_PROGRAM_ID,
+            },
+        )
+        codegen.generate_code()
+        codegen.save_modules()
