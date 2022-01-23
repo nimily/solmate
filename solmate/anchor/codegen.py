@@ -40,7 +40,9 @@ class CodeGen:
     def _get_type_as_string(
         self, field_type, imports, within_types, explicit_forward_ref=False
     ):
-        if field_type <= IdlType.I128:
+        if field_type == IdlType.BOOL:
+            return "bool"
+        elif field_type <= IdlType.I128:
             imports.add_from_import("pod", field_type.get_name())
             return field_type.get_name()
         elif field_type == IdlType.BYTES:
