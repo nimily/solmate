@@ -1,9 +1,20 @@
 import os
 
-from typing import Dict, Iterable, Set
+from typing import Dict, Iterable, Set, Union
 
-from .editor import CodeEditor, ImportCollector
-from .idl import Idl, IdlTypeDefinition, IdlTypeDefinitionTy, IdlType, EnumFields
+from solana.publickey import PublicKey
+from solana.system_program import SYS_PROGRAM_ID
+from spl.token.constants import TOKEN_PROGRAM_ID
+
+from .editor import CodeEditor
+from .idl import (
+    Idl,
+    IdlTypeDefinition,
+    IdlTypeDefinitionTy,
+    IdlType,
+    EnumFields,
+    IdlAccountItem,
+)
 from .utils import camel_to_snake, pascal_to_snake
 
 
@@ -56,57 +67,72 @@ class CodeGen:
 
         return self._editors[name]
 
+    @staticmethod
+    def _add_packing_methods(editor):
+        # this allows IDE's to give better autocomplete for these methods
+        # (otherwise, there is no need to add these.)
+        editor.add_lines(
+            "\n",
+            "    @classmethod\n",
+            "    def to_bytes(cls, obj, **kwargs):\n",
+            '        return cls.pack(obj, converter="bytes", **kwargs)\n',
+            "\n",
+            "    @classmethod\n",
+            "    def from_bytes(cls, raw, **kwargs):\n",
+            '        return cls.unpack(raw, converter="bytes", **kwargs)\n',
+        )
+
     def _get_type_as_string(
-        self, field_type, imports, within_types, explicit_forward_ref=False
+        self, field_type, editor, within_types, explicit_forward_ref=False
     ):
         if field_type == IdlType.BOOL:
             return "bool"
         elif field_type <= IdlType.I128:
-            imports.add_from_import("pod", field_type.get_name())
+            editor.add_from_import("pod", field_type.get_name())
             return field_type.get_name()
         elif field_type == IdlType.BYTES:
             return "bytes"
         elif field_type == IdlType.STRING:
             return "str"
         elif field_type == IdlType.PUBLIC_KEY:
-            imports.add_from_import("solana.publickey", "PublicKey")
+            editor.add_from_import("solana.publickey", "PublicKey")
             return "PublicKey"
         elif field_type == IdlType.DEFINED:
             self._expected_types.add(field_type.field)
             if within_types:
-                imports.add_import(f"{self.root_module}.types", as_clause="types")
+                editor.add_import(f"{self.root_module}.types", as_clause="types")
                 if explicit_forward_ref or field_type.field in self._defined_types:
                     return f"types.{field_type.field}"
                 else:
                     return f'"types.{field_type.field}"'
             else:
-                imports.add_from_import(f"{self.root_module}.types", field_type.field)
+                editor.add_from_import(f"{self.root_module}.types", field_type.field)
                 return f"{field_type.field}"
         elif field_type == IdlType.OPTION:
-            imports.add_from_import(f"pod", "Option")
+            editor.add_from_import(f"pod", "Option")
             if within_types:
-                imports.add_import(f"{self.root_module}.types", as_clause="types")
+                editor.add_import(f"{self.root_module}.types", as_clause="types")
                 field_type_str = self._get_type_as_string(
-                    field_type.field, imports, within_types=within_types
+                    field_type.field, editor, within_types=within_types
                 )
                 return f"Option[{field_type_str}]"
             else:
-                imports.add_from_import(f"{self.root_module}.types", field_type.field)
+                editor.add_from_import(f"{self.root_module}.types", field_type.field)
                 return f'"Option[{field_type.field}]"'
 
         elif field_type == IdlType.VEC:
-            imports.add_from_import("pod", "Vec")
+            editor.add_from_import("pod", "Vec")
             elem_type = field_type.field
             elem_type_str = self._get_type_as_string(
-                elem_type, imports, within_types=within_types
+                elem_type, editor, within_types=within_types
             )
             return f"Vec[{elem_type_str}]"
 
         elif field_type == IdlType.ARRAY:
-            imports.add_from_import("pod", "FixedLenArray")
+            editor.add_from_import("pod", "FixedLenArray")
             elem_type, n_elem = field_type.field
             elem_type_str = self._get_type_as_string(
-                elem_type, imports, within_types=within_types
+                elem_type, editor, within_types=within_types
             )
             return f"FixedLenArray[{elem_type_str}, {n_elem}]"
 
@@ -117,8 +143,9 @@ class CodeGen:
 
     def _generate_types(self):
         type_definitions = self._get_type_definitions()
+        if not type_definitions:
+            return
 
-        self._defined_types.update(self.external_types)
         module_editor = self._get_editor(f"{self.root_module}.types", is_file=False)
         for type_def in type_definitions:
             editor = self._get_editor(
@@ -173,73 +200,40 @@ class CodeGen:
                         elif len(tuple_fields) == 1:
                             variant_type = "Variant(field=" + tuple_fields[0] + ")"
                         else:
-                            imports.add_from_import("typing", "Tuple")
+                            editor.add_from_import("typing", "Tuple")
                             variant_type = (
                                 "Variant(field=Tuple[" + ", ".join(tuple_fields) + "])"
                             )
 
-                    class_code += [f"    {variant.name.upper()}: {variant_type}\n"]
-                    has_variant = True
+                    variant_name = pascal_to_snake(variant.name).upper()
+                    class_code += [f"    {variant_name} = {variant_type}\n"]
 
-                if not has_variant:
+                if not variants:
                     class_code += ["    pass\n"]
 
-            editor = self._get_editor(
-                f"{self.root_module}.types.{camel_to_snake(type_def.name)}"
-            )
+            if editor.set_with_lock(f"class({type_def.name})", class_code):
+                self._add_packing_methods(editor)
 
-            is_clean = "imports" not in editor
-            editor["imports"] = editor.wrap_with_lock(
-                "imports", imports.as_source_code()
-            )
-            if is_clean:
-                editor.add_lines("\n\n")
-
-            class_key = f"class({type_def.name})"
-            is_clean = class_key not in editor
-            editor[class_key] = editor.wrap_with_lock(class_key, class_code)
-            if is_clean:
-                editor.add_lines(
-                    "\n",
-                    "    @classmethod  # type: ignore[misc]\n",
-                    "    def to_bytes(cls, obj, **kwargs):\n",
-                    '        return cls.pack(obj, converter="bytes", **kwargs)\n',
-                    "\n",
-                    "    @classmethod  # type: ignore[misc]\n",
-                    "    def from_bytes(cls, raw, **kwargs):\n",
-                    '        return cls.unpack(raw, converter="bytes", **kwargs)\n',
-                )
-
-            module_imports.add_from_import(
+            module_editor.add_from_import(
                 f".{camel_to_snake(type_def.name)}", type_def.name
             )
 
             self._defined_types.add(type_def.name)
 
-        editor = self._get_editor(f"{self.root_module}.types", is_file=False)
-        editor[f"imports"] = editor.wrap_with_lock(
-            "imports", module_imports.as_source_code()
-        )
-
     def _generate_constants(self):
-        constants = self.idl.constants
+        if not self.idl.constants:
+            return
+
         editor = self._get_editor(f"{self.root_module}.constants")
+        code = []
 
-        imports = ImportCollector()
-        codes = []
-
-        for const in constants:
+        for const in self.idl.constants:
             const_type = self._get_type_as_string(
-                const.type, imports, within_types=False
+                const.type, editor, within_types=False
             )
-            codes.append(f"{const.name}: {const_type} = {const.value}\n")
+            code.append(f"{const.name}: {const_type} = {const.value}\n")
 
-        is_clean = "imports" not in editor
-        editor["imports"] = editor.wrap_with_lock("imports", imports.as_source_code())
-        if is_clean:
-            editor.add_lines("\n\n")
-
-        editor["constants"] = editor.wrap_with_lock("constants", codes)
+        editor.set_with_lock("constants", code)
 
     def _generate_accounts(self):
         return {}
