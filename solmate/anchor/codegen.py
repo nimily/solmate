@@ -12,15 +12,34 @@ class CodeGen:
     root_module: str
     source_path: str
     external_types: Dict[str, str]
+    default_accounts: Dict[str, Union[str, PublicKey]]
     _editors: Dict[str, CodeEditor]
     _defined_types: Set[str]
+    _expected_types: Set[str]
 
-    def __init__(self, idl, root_module, source_path):
+    def __init__(
+        self,
+        idl,
+        root_module,
+        source_path,
+        external_types=None,
+        default_accounts=None,
+    ):
         self.idl = idl
         self.root_module = root_module
         self.source_path = source_path
-        self.external_types = dict()
 
+        if external_types is None:
+            self.external_types = dict()
+        else:
+            self.external_types = external_types
+
+        if default_accounts is None:
+            self.default_accounts = dict()
+        else:
+            self.default_accounts = default_accounts
+
+        self._editors = {}
         self._defined_types = set()
         self._expected_types = set()
 
@@ -241,7 +260,6 @@ class CodeGen:
         return {}
 
     def generate_code(self, check_missing_types=False):
-        self._editors = {}
         self._generate_types()
         self._generate_constants()
         self._generate_accounts()
