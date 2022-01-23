@@ -244,7 +244,7 @@ class CodeEditor:
             self.set_with_lock("imports", imports, lineno=0)
 
             if post_new_line:
-                self.add_lines("\n", lineno=len(imports) + 2)
+                self.add_lines("\n", "\n", lineno=len(imports) + 2)
 
         return "".join(self._lines)
 
