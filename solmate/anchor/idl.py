@@ -1,7 +1,7 @@
 from itertools import chain
-from typing import Optional, Tuple
+from typing import Optional, Tuple  # pylint: disable=unused-import
 
-from pod import pod_json, Vec, Enum, Variant, named_fields, Default, ForwardRef
+from pod import pod_json, field, named_fields, Vec, Enum, Variant
 from pod.types.enum import ENUM_TAG_NAME, ENUM_TAG_NAME_MAP
 from pod.json import POD_OPTIONS_RENAME
 
@@ -33,7 +33,7 @@ class IdlType(Enum):
 
     OPTION = Variant(field="IdlType")
     VEC = Variant(field="IdlType")
-    ARRAY = Variant(field=Tuple[ForwardRef["IdlType"], int])
+    ARRAY = Variant(field="Tuple[IdlType, int]")
 
 
 @pod_json
@@ -54,11 +54,11 @@ class EnumFields(Enum):
             return EnumFields.NAMED([])
 
         if "name" in raw[0]:
-            field = Vec[IdlField].from_json(raw)
-            return EnumFields.NAMED(field)
+            field_val = Vec[IdlField].from_json(raw)
+            return EnumFields.NAMED(field_val)
         else:
-            field = Vec[IdlType].from_json(raw)
-            return EnumFields.TUPLE(field)
+            field_val = Vec[IdlType].from_json(raw)
+            return EnumFields.TUPLE(field_val)
 
     @classmethod
     def _to_json(cls, instance):
@@ -68,7 +68,7 @@ class EnumFields(Enum):
 @pod_json
 class IdlEnumVariant:
     name: str
-    fields: Default[Optional[EnumFields], lambda: None]
+    fields: Optional[EnumFields] = field(default=None)
 
 
 @pod_json
@@ -98,14 +98,14 @@ class IdlEventField:
 @pod_json
 class IdlEvent:
     name: str
-    fields: Default[Vec[IdlEventField], []]
+    fields: Vec[IdlEventField] = field(default_factory=list)
 
 
 @pod_json
 class IdlErrorCode:
     code: int
     name: str
-    msg: Default[Vec[IdlEventField], lambda: None]
+    msg: Vec[IdlEventField] = field(default_factory=list)
 
 
 @pod_json
@@ -170,11 +170,11 @@ class IdlState:
 class Idl:
     version: str
     name: str
-    constants: Default[Vec[IdlConst], list]
-    instructions: Default[Vec[IdlInstruction], list]
-    state: Default[Optional[IdlState], None]
-    accounts: Default[Vec[IdlTypeDefinition], list]
-    types: Default[Vec[IdlTypeDefinition], list]
-    events: Default[Vec[IdlEvent], list]
-    errors: Default[Vec[IdlErrorCode], list]
-    metadata: Default[Optional[object], None]
+    constants: Vec[IdlConst] = field(default_factory=list)
+    instructions: Vec[IdlInstruction] = field(default_factory=list)
+    state: Optional[IdlState] = field(default=None)
+    accounts: Vec[IdlTypeDefinition] = field(default_factory=list)
+    types: Vec[IdlTypeDefinition] = field(default_factory=list)
+    events: Vec[IdlEvent] = field(default_factory=list)
+    errors: Vec[IdlErrorCode] = field(default_factory=list)
+    metadata: Optional[object] = field(default=None)
