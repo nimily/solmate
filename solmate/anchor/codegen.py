@@ -345,16 +345,25 @@ class CodeGen:
             module_editor.add_from_import(f".{instr_name}", instr_name)
 
     def _generate_events(self):
-        return {}
+        if not self.idl.events:
+            return
+
+        # TODO implement code generation for events
+        print("Skipping events...")
 
     def _generate_errors(self):
-        return {}
+        if not self.idl.errors:
+            return
+
+        # TODO implement code generation for events
+        print("Skipping errors...")
 
     def _generate_state(self):
-        if self.idl.state:
-            raise NotImplementedError()
+        if not self.idl.state:
+            return
 
-        return {}
+        # TODO implement code generation for events
+        print("Skipping state...")
 
     def generate_code(self, check_missing_types=False):
         self._generate_types()
