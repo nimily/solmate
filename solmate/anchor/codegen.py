@@ -1,6 +1,6 @@
 import os
 
-from typing import Dict, Iterable, Set, Union
+from typing import Dict, Iterable, Set, Union, Callable
 
 from solana.publickey import PublicKey
 from solana.system_program import SYS_PROGRAM_ID
@@ -23,7 +23,7 @@ class CodeGen:
     program_id: Union[PublicKey, str]
     root_module: str
     source_path: str
-    external_types: Dict[str, str]
+    external_types: Dict[str, Callable]
     default_accounts: Dict[str, Union[PublicKey, str]]
     _editors: Dict[str, CodeEditor]
     _defined_types: Set[str]
@@ -103,7 +103,9 @@ class CodeGen:
             return "PublicKey"
         elif field_type == IdlType.DEFINED:
             self._expected_types.add(field_type.field)
-            if within_types:
+            if field_type.field in self.external_types:
+                return self.external_types[field_type.field](editor)
+            elif within_types:
                 editor.add_import(f"{self.root_module}.types", as_clause="types")
                 if explicit_forward_ref or field_type.field in self._defined_types:
                     return f"types.{field_type.field}"
@@ -360,7 +362,9 @@ class CodeGen:
 
             module_editor.add_from_import(f".{instr_name}", instr_name)
 
-        self._package_editor.add_import(f"{self.root_module}.instructions", "instructions")
+        self._package_editor.add_import(
+            f"{self.root_module}.instructions", "instructions"
+        )
 
     def _generate_events(self):
         if not self.idl.events:
@@ -411,6 +415,16 @@ class CodeGen:
             editor.save()
 
 
+def usize_type(editor: CodeEditor):
+    editor.add_from_import("solmate.dtypes", "Usize")
+    return "Usize"
+
+
+def unix_timestamp_type(editor: CodeEditor):
+    editor.add_from_import("solmate.dtypes", "UnixTimestamp")
+    return "UnixTimestamp"
+
+
 def cli():
     for protocol in ("dex", "instruments", "noop_risk_engine"):
         idl = Idl.from_json_file(f"/Users/nimily/tmp/idl/{protocol}.json")
@@ -420,6 +434,10 @@ def cli():
             "23423423423434",
             f"dexterity.{protocol}",
             f"{root}",
+            external_types={
+                "usize": usize_type,
+                "UnixTimestamp": unix_timestamp_type,
+            },
             default_accounts={
                 "systemProgram": SYS_PROGRAM_ID,
                 "token_program": TOKEN_PROGRAM_ID,
