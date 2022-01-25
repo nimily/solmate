@@ -102,10 +102,11 @@ class CodeGen:
             editor.add_from_import("solana.publickey", "PublicKey")
             return "PublicKey"
         elif field_type == IdlType.DEFINED:
-            self._expected_types.add(field_type.field)
             if field_type.field in self.external_types:
                 return self.external_types[field_type.field](editor)
-            elif within_types:
+
+            self._expected_types.add(field_type.field)
+            if within_types:
                 editor.add_import(f"{self.root_module}.types", as_clause="types")
                 if explicit_forward_ref or field_type.field in self._defined_types:
                     return f"types.{field_type.field}"
@@ -423,6 +424,11 @@ def usize_type(editor: CodeEditor):
 def unix_timestamp_type(editor: CodeEditor):
     editor.add_from_import("solmate.dtypes", "UnixTimestamp")
     return "UnixTimestamp"
+
+
+def program_error_type(editor: CodeEditor):
+    editor.add_from_import("solmate.dtypes", "ProgramError")
+    return "ProgramError"
 
 
 def cli():
