@@ -1,4 +1,9 @@
-from pod import U32, U64, I64, Enum, Variant
+from typing import Type
+
+from pod import U32, U64, I64, Enum, Variant, Option, pod
+from pod._utils import _GetitemToCall, get_calling_module
+from pod.types.enum import ENUM_TAG_TYPE
+
 
 Usize = U64  # Should it be U32?
 UnixTimestamp = I64
@@ -57,3 +62,20 @@ class ProgramError(Enum):
     def __str__(self):
         variant = self._get_variant(self.get_name())
         return variant.to_string(self)
+
+
+def _coption(name, type_: Type):
+    @pod
+    class _COption(Enum):
+        __enum_options__ = {ENUM_TAG_TYPE: U32}
+
+        NONE = Variant()
+        SOME = Variant(field=type_, module=get_calling_module(4))
+
+    _COption.__name__ = f"{name}[{type_}]"
+    _COption.__qualname__ = _COption.__name__
+
+    return _COption
+
+
+COption = _GetitemToCall("COption", _coption)

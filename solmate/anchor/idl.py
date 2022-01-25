@@ -32,6 +32,8 @@ class IdlType(Enum):
     DEFINED = Variant(field=str)
 
     OPTION = Variant(field="IdlType")
+    COPTION = Variant(field="IdlType")
+    STATIC = Variant(field="IdlType")
     VEC = Variant(field="IdlType")
     ARRAY = Variant(field="Tuple[IdlType, int]")
 

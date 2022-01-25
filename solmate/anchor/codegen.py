@@ -115,25 +115,26 @@ class CodeGen:
             else:
                 editor.add_from_import(f"{self.root_module}.types", field_type.field)
                 return f"{field_type.field}"
-        elif field_type == IdlType.OPTION:
-            editor.add_from_import(f"pod", "Option")
-            if within_types:
-                editor.add_import(f"{self.root_module}.types", as_clause="types")
-                field_type_str = self._get_type_as_string(
-                    field_type.field, editor, within_types=within_types
-                )
-                return f"Option[{field_type_str}]"
+        elif field_type in (
+            IdlType.OPTION,
+            IdlType.COPTION,
+            IdlType.STATIC,
+            IdlType.VEC,
+        ):
+            if field_type == IdlType.OPTION:
+                type_name = "Option"
+            elif field_type == IdlType.COPTION:
+                type_name = "COption"
+            elif field_type == IdlType.STATIC:
+                type_name = "Static"
             else:
-                editor.add_from_import(f"{self.root_module}.types", field_type.field)
-                return f'"Option[{field_type.field}]"'
+                type_name = "Vec"
 
-        elif field_type == IdlType.VEC:
-            editor.add_from_import("pod", "Vec")
-            elem_type = field_type.field
-            elem_type_str = self._get_type_as_string(
-                elem_type, editor, within_types=within_types
+            editor.add_from_import(f"pod", type_name)
+            field_type_str = self._get_type_as_string(
+                field_type.field, editor, within_types=within_types
             )
-            return f"Vec[{elem_type_str}]"
+            return f"{type_name}[{field_type_str}]"
 
         elif field_type == IdlType.ARRAY:
             editor.add_from_import("pod", "FixedLenArray")
