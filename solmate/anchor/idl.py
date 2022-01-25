@@ -142,11 +142,11 @@ class IdlAccountItem(Enum):  # here
         assert isinstance(raw, dict)
 
         if "accounts" in raw:
-            field = Vec[IdlAccounts].from_json(raw)
-            return IdlAccountItem.IDL_ACCOUNTS(field)
+            field_value = Vec[IdlAccounts].from_json(raw)
+            return IdlAccountItem.IDL_ACCOUNTS(field_value)
         else:
-            field = IdlAccount.from_json(raw)
-            return IdlAccountItem.IDL_ACCOUNT(field)
+            field_value = IdlAccount.from_json(raw)
+            return IdlAccountItem.IDL_ACCOUNT(field_value)
 
     @classmethod
     def _to_json(cls, instance):
