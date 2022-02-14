@@ -11,7 +11,7 @@ def main():
     args = parser.parse_args()
 
     if args.out_dir is None:
-        args.out_dir = os.getcwd()
+        args.out_dir = os.getcwd() + '/codegen'
     if args.idl_dir is None:
         args.idl_dir = os.getcwd()
 
