@@ -433,14 +433,14 @@ def program_error_type(editor: CodeEditor):
     return "ProgramError"
 
 
-def cli(idl_dir: str, out_dir: str):
+def cli(idl_dir: str, out_dir: str, parent_module: str):
     for protocol in get_protocols(idl_dir):
         print(f"Generating code for {protocol}")
         idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")
         codegen = CodeGen(
             idl,
             "23423423423434",
-            protocol,
+            f'{parent_module}.{protocol}',
             out_dir,
             external_types={
                 "usize": usize_type,
