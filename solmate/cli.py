@@ -1,6 +1,7 @@
-from solmate.anchor import codegen
 import argparse
 import os
+
+from solmate.anchor import codegen
 
 
 def main():
