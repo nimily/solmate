@@ -1,4 +1,5 @@
 import os
+import re
 
 from typing import Dict, Iterable, Set, Union, Callable
 
@@ -432,15 +433,27 @@ def program_error_type(editor: CodeEditor):
     return "ProgramError"
 
 
-def cli():
-    for protocol in ("dex", "instruments", "noop_risk_engine"):
-        idl = Idl.from_json_file(f"/Users/nimily/tmp/idl/{protocol}.json")
-        root = "/Users/nimily/Workspaces/python/solmate"
+def cli(idl_dir: str, out_dir: str):
+    protocols = []
+    print("Found protocols:")
+    for filename in os.listdir(idl_dir):
+        # print(filename)
+        match = re.search(r"([a-z_]+).json", filename)
+        if match is None:
+            continue
+        # print(match, match.groups())
+        protocol = match.groups()[0]
+        print(f"- {protocol}")
+        protocols.append(protocol)
+
+    for protocol in protocols:
+        print(f"Generating code for {protocol}")
+        idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")
         codegen = CodeGen(
             idl,
             "23423423423434",
             f"dexterity.{protocol}",
-            f"{root}",
+            out_dir,
             external_types={
                 "usize": usize_type,
                 "UnixTimestamp": unix_timestamp_type,
