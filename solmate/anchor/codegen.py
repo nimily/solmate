@@ -440,7 +440,7 @@ def cli(idl_dir: str, out_dir: str):
         codegen = CodeGen(
             idl,
             "23423423423434",
-            f"dexterity.{protocol}",
+            protocol,
             out_dir,
             external_types={
                 "usize": usize_type,
