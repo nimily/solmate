@@ -28,6 +28,14 @@ examples = ["graphql-core (>=3.0.0)", "attrs", "docstring-parser", "bson", "orjs
 graphql = ["graphql-core (>=3.0.0)"]
 
 [[package]]
+name = "argparse"
+version = "1.4.0"
+description = "Python command-line parsing library"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "astroid"
 version = "2.9.3"
 description = "An abstract syntax tree for Python with inference support."
@@ -622,7 +630,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "8b081e3e0ae339d628ba277fe3287b00f8e152c2822559bf934217b8ae950b4b"
+content-hash = "66a7a4ae1c62c1ff9507f35484968b57ea1fffc92d8e2a40d33bd4e6fa692ac1"
 
 [metadata.files]
 anyio = [
@@ -632,6 +640,10 @@ anyio = [
 apischema = [
     {file = "apischema-0.16.6-py3-none-any.whl", hash = "sha256:b1ffcc19831fceb99c175ce53d81125bb46b8b22a019f4d8307f6d23f13e5647"},
     {file = "apischema-0.16.6.tar.gz", hash = "sha256:5e53830269d17a3586103c71d7961f23df5fe8844f93afbcc3e7a1a7cbac0c75"},
+]
+argparse = [
+    {file = "argparse-1.4.0-py2.py3-none-any.whl", hash = "sha256:c31647edb69fd3d465a847ea3157d37bed1f95f19760b11a47aa91c04b666314"},
+    {file = "argparse-1.4.0.tar.gz", hash = "sha256:62b089a55be1d8949cd2bc7e0df0bddb9e028faefc8c32038cc84862aefdd6e4"},
 ]
 astroid = [
     {file = "astroid-2.9.3-py3-none-any.whl", hash = "sha256:506daabe5edffb7e696ad82483ad0228245a9742ed7d2d8c9cdb31537decf9f6"},
