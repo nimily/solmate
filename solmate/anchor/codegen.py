@@ -44,6 +44,7 @@ class CodeGen:
         default_accounts=None,
         instr_tag_values="incremental",
         accnt_tag_values="incremental",
+        skip_types=None,
     ):
         self.idl = idl
         self.program_id = program_id
@@ -61,6 +62,11 @@ class CodeGen:
             self.default_accounts = dict()
         else:
             self.default_accounts = default_accounts
+
+        if skip_types is None:
+            self.skip_types = []
+        else:
+            self.skip_types = skip_types
 
         self._editors = {}
         self._defined_types = set()
@@ -508,13 +514,25 @@ def program_error_type(editor: CodeEditor):
     return "ProgramError"
 
 
-def cli(idl_dir: str, out_dir: str, parent_module: str):
-    def self_trade_behavior_type(editor):
-        return "object"
+def self_trade_behavior_type(editor):
+    editor.add_from_import("dexterity.utils.aob.state", "SelfTradeBehavior")
+    return "SelfTradeBehavior"
+
+
+def side_type(editor: CodeEditor):
+    editor.add_from_import("dexterity.utils.aob.state", "Side")
+    return "Side"
+
+
+def cli(idl_dir: str, out_dir: str, parent_module: str, skip_types: Set[str]):
 
     for protocol in get_protocols(idl_dir):
         print(f"Generating code for {protocol}")
         idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")
+
+        idl.types = list(filter(lambda x: x.name not in skip_types, idl.types))
+        idl.accounts = list(filter(lambda x: x.name not in skip_types, idl.accounts))
+
         codegen = CodeGen(
             idl,
             "teE55QrL4a4QSfydR9dnHF97jgCfptpuigbb53Lo95g",
@@ -525,6 +543,7 @@ def cli(idl_dir: str, out_dir: str, parent_module: str):
                 "UnixTimestamp": unix_timestamp_type,
                 "ProgramError": program_error_type,
                 "SelfTradeBehavior": self_trade_behavior_type,
+                "Side": side_type,
             },
             default_accounts={
                 "systemProgram": SYS_PROGRAM_ID,
