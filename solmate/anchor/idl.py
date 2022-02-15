@@ -50,20 +50,20 @@ class EnumFields(Enum):
     TUPLE = Variant(field=Vec[IdlType])
 
     @classmethod
-    def _from_json(cls, raw):
+    def _from_dict(cls, raw):
         assert isinstance(raw, list)
         if len(raw) == 0:
             return EnumFields.NAMED([])
 
         if "name" in raw[0]:
-            field_val = Vec[IdlField].from_json(raw)
+            field_val = Vec[IdlField].from_dict(raw)
             return EnumFields.NAMED(field_val)
         else:
-            field_val = Vec[IdlType].from_json(raw)
+            field_val = Vec[IdlType].from_dict(raw)
             return EnumFields.TUPLE(field_val)
 
     @classmethod
-    def _to_json(cls, instance):
+    def _to_dict(cls, instance):
         raise NotImplementedError
 
 
@@ -107,7 +107,7 @@ class IdlEvent:
 class IdlErrorCode:
     code: int
     name: str
-    msg: Vec[IdlEventField] = field(default_factory=list)
+    msg: Optional[str] = field(default=None)
 
 
 @pod_json
@@ -124,6 +124,7 @@ class IdlAccount:
     name: str
     is_mut: bool
     is_signer: bool
+    is_optional: bool = field(default=False)
 
 
 @pod_json
@@ -140,18 +141,18 @@ class IdlAccountItem(Enum):  # here
     IDL_ACCOUNTS = Variant(field=IdlAccounts)
 
     @classmethod
-    def _from_json(cls, raw):
+    def _from_dict(cls, raw):
         assert isinstance(raw, dict)
 
         if "accounts" in raw:
-            field_value = Vec[IdlAccounts].from_json(raw)
+            field_value = Vec[IdlAccounts].from_dict(raw)
             return IdlAccountItem.IDL_ACCOUNTS(field_value)
         else:
-            field_value = IdlAccount.from_json(raw)
+            field_value = IdlAccount.from_dict(raw)
             return IdlAccountItem.IDL_ACCOUNT(field_value)
 
     @classmethod
-    def _to_json(cls, instance):
+    def _to_dict(cls, instance):
         raise NotImplementedError
 
 

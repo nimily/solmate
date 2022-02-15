@@ -2,7 +2,6 @@ from typing import Type
 
 from pod import U32, U64, I64, Enum, Variant, Option, pod
 from pod._utils import _GetitemToCall, get_calling_module
-from pod.types.enum import ENUM_TAG_TYPE
 
 
 Usize = U64  # Should it be U32?
@@ -66,9 +65,7 @@ class ProgramError(Enum):
 
 def _coption(name, type_: Type):
     @pod
-    class _COption(Enum):
-        __enum_options__ = {ENUM_TAG_TYPE: U32}
-
+    class _COption(Enum[U32]):
         NONE = Variant()
         SOME = Variant(field=type_, module=get_calling_module(4))
 

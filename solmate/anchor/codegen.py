@@ -1,7 +1,7 @@
 import os
 import re
 
-from typing import List, Dict, Iterable, Set, Union, Callable
+from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional, List
 
 from solana.publickey import PublicKey
 from solana.system_program import SYS_PROGRAM_ID
@@ -25,7 +25,10 @@ class CodeGen:
     root_module: str
     source_path: str
     external_types: Dict[str, Callable]
-    default_accounts: Dict[str, Union[PublicKey, str]]
+    default_accounts: Dict[str, Union[PublicKey, str, Callable]]
+    instr_tag_values: Literal["incremental", "anchor"]
+    accnt_tag_values: Optional[Literal["incremental", "anchor"]]
+
     _editors: Dict[str, CodeEditor]
     _defined_types: Set[str]
     _expected_types: Set[str]
@@ -39,11 +42,15 @@ class CodeGen:
         source_path,
         external_types=None,
         default_accounts=None,
+        instr_tag_values="incremental",
+        accnt_tag_values="incremental",
     ):
         self.idl = idl
         self.program_id = program_id
         self.root_module = root_module
         self.source_path = source_path
+        self.instr_tag_values = instr_tag_values  # type: ignore
+        self.accnt_tag_values = accnt_tag_values  # type: ignore
 
         if external_types is None:
             self.external_types = dict()
@@ -76,7 +83,18 @@ class CodeGen:
     def _add_packing_methods(editor):
         # this allows IDE's to give better autocomplete for these methods
         # (otherwise, there is no need to add these.)
+
         editor.add_lines(
+            "\n",
+            "    @classmethod\n",
+            "    def _to_bytes_partial(cls, buffer, obj):\n",
+            "        # to modify packing, change this method\n",
+            "        return super()._to_bytes_partial(buffer, obj)\n",
+            "\n",
+            "    @classmethod\n",
+            "    def _from_bytes_partial(cls, buffer):\n",
+            "        # to modify unpacking, change this method\n",
+            "        return super()._from_bytes_partial(buffer)\n",
             "\n",
             "    @classmethod\n",
             "    def to_bytes(cls, obj, **kwargs):\n",
@@ -122,16 +140,19 @@ class CodeGen:
             IdlType.STATIC,
             IdlType.VEC,
         ):
-            if field_type == IdlType.OPTION:
-                type_name = "Option"
-            elif field_type == IdlType.COPTION:
+            if field_type == IdlType.COPTION:
                 type_name = "COption"
-            elif field_type == IdlType.STATIC:
-                type_name = "Static"
+                editor.add_from_import(f"solmate.dtypes", type_name)
             else:
-                type_name = "Vec"
+                if field_type == IdlType.OPTION:
+                    type_name = "Option"
+                elif field_type == IdlType.STATIC:
+                    type_name = "Static"
+                else:
+                    type_name = "Vec"
 
-            editor.add_from_import(f"pod", type_name)
+                editor.add_from_import(f"pod", type_name)
+
             field_type_str = self._get_type_as_string(
                 field_type.field, editor, within_types=within_types
             )
@@ -179,7 +200,8 @@ class CodeGen:
 
             else:
                 editor.add_from_import("pod", "Enum")
-                class_code += [f"class {type_def.name}(Enum):\n"]
+                editor.add_from_import("pod", "U8")
+                class_code += [f"class {type_def.name}(Enum[U8]):\n"]
                 variants = type_def.type.field.variants
                 for variant in variants:
                     if variant.fields is None:
@@ -247,27 +269,40 @@ class CodeGen:
         self._package_editor.add_import(f"{self.root_module}.constants", "constants")
 
     def _generate_accounts(self):
-        if not self.idl.accounts:
+        if not self.idl.accounts or self.accnt_tag_values is None:
             return
 
         editor = self._get_editor(f"{self.root_module}.accounts")
         code = []
 
         editor.add_from_import("pod", "pod")
-        editor.add_from_import("solmate.anchor", "Discriminant")
-        editor.add_from_import("solmate.anchor", "Variant")
+        editor.add_from_import("pod", "Enum")
+
+        base = None
+        variant_type = None
+        if self.accnt_tag_values == "incremental":
+            editor.add_from_import("pod", "Variant")
+            base = "Enum"
+            variant_type = "Variant"
+
+        elif self.accnt_tag_values == "anchor":
+            editor.add_from_import("pod", "U64")
+            editor.add_from_import("solmate.anchor", "Discriminant")
+            base = "Enum[U64]"
+            variant_type = "Discriminant"
+
         code.extend(
             [
                 "@pod\n",
-                "class Accounts(Discriminant):\n",
+                f"class Accounts({base}):\n",
             ]
         )
         for account in self.idl.accounts:
             editor.add_from_import(f"{self.root_module}.types", account.name)
 
             variant_name = pascal_to_snake(account.name).upper()
-            variant_type = f"Variant(field={account.name})"
-            code += [f"    {variant_name} = {variant_type}\n"]
+            variant_inst = f"{variant_type}(field={account.name})"
+            code += [f"    {variant_name} = {variant_inst}\n"]
 
         if editor.set_with_lock("accounts", code):
             self._add_packing_methods(editor)
@@ -292,13 +327,21 @@ class CodeGen:
             accounts_with_defaults = []
             for account in instr.accounts:
                 account_name = camel_to_snake(account.field.name)
+                account_type = (
+                    "Optional[PublicKey]" if account.field.is_optional else "PublicKey"
+                )
+                declaration = f"    {account_name}: {account_type}"
+                if account.field.is_optional:
+                    editor.add_from_import("typing", "Optional")
+
                 if (
                     account.field.name not in self.default_accounts
                     and account_name not in self.default_accounts
+                    and not account.field.is_optional
                 ):
-                    code.append(f"    {account_name}: PublicKey,\n")
+                    code.append(f"{declaration},\n")
                 else:
-                    accounts_with_defaults.append(account)
+                    accounts_with_defaults.append((account, declaration))
 
             for arg in instr.args:
                 arg_type = self._get_type_as_string(
@@ -306,16 +349,19 @@ class CodeGen:
                 )
                 code.append(f"    {arg.name}: {arg_type},\n")
 
-            for account in accounts_with_defaults:
+            for account, declaration in accounts_with_defaults:
                 account_name = camel_to_snake(account.field.name)
                 if account_name in self.default_accounts:
                     default_account = self.default_accounts[account_name]
-                else:
+                elif account.field.name in self.default_accounts:
                     default_account = self.default_accounts[account.field.name]
+                else:
+                    default_account = "None"
 
-                code.append(
-                    f'    {account_name}: PublicKey = PublicKey("{default_account}"),\n'
-                )
+                if isinstance(default_account, Callable):
+                    default_account = default_account(editor)
+
+                code.append(f'{declaration} = PublicKey("{default_account}"),\n')
 
             editor.add_from_import("typing", "Optional")
             editor.add_from_import("typing", "List")
@@ -423,7 +469,9 @@ def usize_type(editor: CodeEditor):
     return "Usize"
 
 
-def unix_timestamp_type(editor: CodeEditor):
+def unix_timestamp_type(
+    editor: CodeEditor,
+):
     editor.add_from_import("solmate.dtypes", "UnixTimestamp")
     return "UnixTimestamp"
 
@@ -434,24 +482,30 @@ def program_error_type(editor: CodeEditor):
 
 
 def cli(idl_dir: str, out_dir: str, parent_module: str):
+    def self_trade_behavior_type(editor):
+        return "object"
+
     for protocol in get_protocols(idl_dir):
         print(f"Generating code for {protocol}")
         idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")
         codegen = CodeGen(
             idl,
-            "23423423423434",
-            f'{parent_module}.{protocol}',
+            "teE55QrL4a4QSfydR9dnHF97jgCfptpuigbb53Lo95g",
+            f"{parent_module}.{protocol}",
             out_dir,
             external_types={
                 "usize": usize_type,
                 "UnixTimestamp": unix_timestamp_type,
+                "ProgramError": program_error_type,
+                "SelfTradeBehavior": self_trade_behavior_type,
             },
             default_accounts={
                 "systemProgram": SYS_PROGRAM_ID,
                 "token_program": TOKEN_PROGRAM_ID,
             },
+            accnt_tag_values="anchor",
         )
-        codegen.generate_code()
+        codegen.generate_code(check_missing_types=not True)
         codegen.save_modules()
 
 
