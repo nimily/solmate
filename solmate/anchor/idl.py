@@ -1,3 +1,4 @@
+import json
 from itertools import chain
 from typing import Optional, Tuple  # pylint: disable=unused-import
 
@@ -181,3 +182,9 @@ class Idl:
     events: Vec[IdlEvent] = field(default_factory=list)
     errors: Vec[IdlErrorCode] = field(default_factory=list)
     metadata: Optional[object] = field(default=None)
+
+    @staticmethod
+    def from_json_file(filename):
+        with open(filename, "r") as fin:
+            idl_dict = json.load(fin)
+            return Idl.from_dict(idl_dict)

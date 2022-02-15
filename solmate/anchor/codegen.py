@@ -318,6 +318,7 @@ class CodeGen:
         )
         for instr in self.idl.instructions:
             instr_name = camel_to_snake(instr.name)
+
             editor = self._get_editor(f"{self.root_module}.instructions.{instr_name}")
             editor.add_from_import("solana.publickey", "PublicKey")
 
@@ -390,7 +391,11 @@ class CodeGen:
             # generating data
             editor.add_from_import("io", "BytesIO")
             code.append("    buffer = BytesIO()\n")
-            # TODO generate instruction code
+            editor.add_from_import(".instruction_tag", "InstructionTag")
+            instr_tag_name = camel_to_snake(instr.name).upper()
+            code.append(
+                f"    buffer.write(InstructionTag.to_bytes(InstructionTag.{instr_tag_name}))\n"
+            )
             for arg in instr.args:
                 arg_type = self._get_type_as_string(
                     arg.type, editor, within_types=False
@@ -410,6 +415,28 @@ class CodeGen:
             editor.set_with_lock(f"instruction({instr_name})", code)
 
             module_editor.add_from_import(f".{instr_name}", instr_name)
+
+        # generating InstructionTag class
+        instr_tag_editor = self._get_editor(
+            f"{self.root_module}.instructions.instruction_tag"
+        )
+        instr_tag_editor.add_from_import("pod", "Enum")
+        if self.instr_tag_values == "incremental":
+            tag_type = "U8"
+            variant_type = "Variant"
+            instr_tag_editor.add_from_import("pod", "Variant")
+        else:
+            tag_type = "U64"
+            variant_type = "Discriminant"
+            instr_tag_editor.add_from_import("solmate.anchor", "Discriminant")
+
+        instr_tag_editor.add_from_import("pod", tag_type)
+        instr_tag_code = [f"class InstructionTag(Enum[{tag_type}]):\n"]
+        for instr in self.idl.instructions:
+            instr_tag_name = camel_to_snake(instr.name).upper()
+            instr_tag_code.append(f"    {instr_tag_name} = {variant_type}()\n")
+
+        instr_tag_editor.set_with_lock(f"instruction_tag", instr_tag_code)
 
         self._package_editor.add_import(
             f"{self.root_module}.instructions", "instructions"
@@ -513,7 +540,7 @@ def get_protocols(idl_dir: str) -> List[str]:
     protocols = []
     print("Found protocols:")
     for filename in os.listdir(idl_dir):
-        match = re.search(r"([a-z_]+).json", filename)
+        match = re.search(r"([a-z_\-]+).json", filename)
         if match is None:
             continue
         protocol = match.groups()[0]
