@@ -1,7 +1,8 @@
 import os
 import re
+import subprocess
 from functools import partial
-from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional, List
+from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional
 
 from solana.publickey import PublicKey
 from solana.system_program import SYS_PROGRAM_ID
@@ -477,14 +478,14 @@ class CodeGen:
         if not self.idl.errors:
             return
 
-        # TODO implement code generation for events
+        # TODO implement code generation for errors
         print("Skipping errors...")
 
     def _generate_state(self):
         if not self.idl.state:
             return
 
-        # TODO implement code generation for events
+        # TODO implement code generation for state
         print("Skipping state...")
 
     def generate_code(self, check_missing_types=False):
@@ -554,9 +555,11 @@ def defined_types_to_imports(root_module: str, idl: Idl) -> Dict[str, Callable[[
         ((ty.name, partial(add_import, ty.name)) for ty in type_definitions))
 
 
-def cli(idl_dir: str, out_dir: str, parent_module: str, skip_types: Set[str]):
+def cli(idl_dir: str, out_dir: str, pids_dir: Union[str, Dict[str, PublicKey]], parent_module: str,
+        skip_types: Set[str]):
     protocol_to_idl_and_types = {}
-    for protocol in get_protocols(idl_dir):
+    protocol_to_pid = get_protocols(idl_dir, pids_dir)
+    for protocol in protocol_to_pid.keys():
         idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")
 
         idl.types = list(filter(lambda x: x.name not in skip_types, idl.types))
@@ -578,7 +581,7 @@ def cli(idl_dir: str, out_dir: str, parent_module: str, skip_types: Set[str]):
         print(f"Generating code for {protocol}")
         codegen = CodeGen(
             idl,
-            "teE55QrL4a4QSfydR9dnHF97jgCfptpuigbb53Lo95g",
+            protocol_to_pid[protocol],
             f"{parent_module}.{protocol}",
             out_dir,
             external_types=external_types,
@@ -592,14 +595,45 @@ def cli(idl_dir: str, out_dir: str, parent_module: str, skip_types: Set[str]):
         codegen.save_modules()
 
 
-def get_protocols(idl_dir: str) -> List[str]:
-    protocols = []
-    print("Found protocols:")
+def get_protocols(idl_dir: str, pids: Union[str, Dict[str, str]]) -> Dict[str, str]:
+    protocols = set()
     for filename in os.listdir(idl_dir):
         match = re.search(r"([a-z_\-]+).json", filename)
         if match is None:
             continue
         protocol = match.groups()[0]
-        print(f"- {protocol}")
-        protocols.append(protocol)
-    return protocols
+        protocols.add(protocol)
+
+    # if a path was passed in, load pids from the directory
+    if isinstance(pids, str):
+        pids = dir_to_pids(pids)
+
+    intersection = {}
+    for protocol, pid in pids.items():
+        if protocol in protocols:
+            intersection[protocol] = pid
+    for protocol in protocols:
+        if protocol not in pids:
+            print("WARNING: found idl file with no matching program id: ", protocol)
+
+    return intersection
+
+
+def dir_to_pids(dir: str) -> Dict[str, str]:
+    program_to_id = {}
+    for filename in os.listdir(dir):
+        match = re.search(r"([a-z_]+)-keypair.json", filename)
+        if match is None:
+            continue
+        program = match.groups()[0]
+        program_to_id[program] = run(f"solana-keygen pubkey {dir}/{filename}")
+    return program_to_id
+
+
+def run(cmd, debug=False):
+    if debug:
+        print(cmd)
+    res = subprocess.check_output(cmd, shell=True).strip().decode("utf-8")
+    if debug:
+        print(res)
+    return res
