@@ -405,7 +405,7 @@ develop = false
 [package.source]
 type = "git"
 url = "git@github.com:nimily/pod.git"
-reference = "93253aa913338a48bf9c7fcef92f69aea044d1e1"
+reference = "main"
 resolved_reference = "93253aa913338a48bf9c7fcef92f69aea044d1e1"
 
 [[package]]
@@ -630,7 +630,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "5dee5d613dc57f38442699c5eabf46e72a826651dc5f8855b75f58636dbdcfde"
+content-hash = "66a7a4ae1c62c1ff9507f35484968b57ea1fffc92d8e2a40d33bd4e6fa692ac1"
 
 [metadata.files]
 anyio = [

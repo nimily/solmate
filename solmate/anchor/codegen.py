@@ -148,13 +148,12 @@ class CodeGen:
 
             self._expected_types.add(field_type.field)
             if within_types:
-                # editor.add_import(f"{self.root_module}.types", as_clause="types")
                 editor.add_from_import(f"{self.root_module}.types.{pascal_to_snake(field_type.field)}",
                                        field_type.field)
                 if explicit_forward_ref or field_type.field in self._defined_types:
                     return f"{field_type.field}"
                 else:
-                    return f'"types.{field_type.field}"'
+                    return f'"{field_type.field}"'
             else:
                 editor.add_from_import(f"{self.root_module}.types", field_type.field)
                 return f"{field_type.field}"
