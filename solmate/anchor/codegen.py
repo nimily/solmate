@@ -478,14 +478,14 @@ class CodeGen:
         if not self.idl.errors:
             return
 
-        # TODO implement code generation for events
+        # TODO implement code generation for errors
         print("Skipping errors...")
 
     def _generate_state(self):
         if not self.idl.state:
             return
 
-        # TODO implement code generation for events
+        # TODO implement code generation for state
         print("Skipping state...")
 
     def generate_code(self, check_missing_types=False):
