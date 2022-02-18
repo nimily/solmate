@@ -1,6 +1,5 @@
 import os
 import re
-
 from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional, List
 
 from solana.publickey import PublicKey
@@ -35,16 +34,16 @@ class CodeGen:
     _package_editor: CodeEditor
 
     def __init__(
-        self,
-        idl,
-        program_id,
-        root_module,
-        source_path,
-        external_types=None,
-        default_accounts=None,
-        instr_tag_values="incremental",
-        accnt_tag_values="incremental",
-        skip_types=None,
+            self,
+            idl,
+            program_id,
+            root_module,
+            source_path,
+            external_types=None,
+            default_accounts=None,
+            instr_tag_values="incremental",
+            accnt_tag_values="incremental",
+            skip_types=None,
     ):
         self.idl = idl
         self.program_id = program_id
@@ -86,22 +85,39 @@ class CodeGen:
         return self._editors[name]
 
     @staticmethod
-    def _add_packing_methods(editor):
+    def _add_packing_methods(editor, is_struct):
         # this allows IDE's to give better autocomplete for these methods
         # (otherwise, there is no need to add these.)
+        if is_struct:
+            pass
+            # editor.add_lines(
+            #     "\n",
+            #     "    @classmethod\n",
+            #     "    def _to_bytes_partial(cls, buffer, obj):\n",
+            #     "        # to modify packing, change this method\n",
+            #     "        return super()._to_bytes_partial(buffer, obj)\n",
+            #     "\n",
+            #     "    @classmethod\n",
+            #     "    def _from_bytes_partial(cls, buffer):\n",
+            #     "        # to modify unpacking, change this method\n",
+            #     "        return super()._from_bytes_partial(buffer)\n",
+            # )
+        else:
+            editor.add_lines(
+                "\n",
+                "    @classmethod\n",
+                "    def _to_bytes_partial(cls, buffer, obj):\n",
+                "        # to modify packing, change this method\n",
+                "        return super()._to_bytes_partial(buffer, obj)\n",
+                "\n",
+                "    @classmethod\n",
+                "    def _from_bytes_partial(cls, buffer):\n",
+                "        # to modify unpacking, change this method\n",
+                "        return super()._from_bytes_partial(buffer)\n",
+            )
 
         editor.add_lines(
-            "\n",
-            "    @classmethod\n",
-            "    def _to_bytes_partial(cls, buffer, obj):\n",
-            "        # to modify packing, change this method\n",
-            "        return super()._to_bytes_partial(buffer, obj)\n",
-            "\n",
-            "    @classmethod\n",
-            "    def _from_bytes_partial(cls, buffer):\n",
-            "        # to modify unpacking, change this method\n",
-            "        return super()._from_bytes_partial(buffer)\n",
-            "\n",
+            "\n"
             "    @classmethod\n",
             "    def to_bytes(cls, obj, **kwargs):\n",
             '        return cls.pack(obj, converter="bytes", **kwargs)\n',
@@ -112,7 +128,7 @@ class CodeGen:
         )
 
     def _get_type_as_string(
-        self, field_type, editor, within_types, explicit_forward_ref=False
+            self, field_type, editor, within_types, explicit_forward_ref=False
     ):
         if field_type.is_a(IdlType.BOOL):
             return "bool"
@@ -132,9 +148,11 @@ class CodeGen:
 
             self._expected_types.add(field_type.field)
             if within_types:
-                editor.add_import(f"{self.root_module}.types", as_clause="types")
+                # editor.add_import(f"{self.root_module}.types", as_clause="types")
+                editor.add_from_import(f"{self.root_module}.types.{pascal_to_snake(field_type.field)}",
+                                       field_type.field)
                 if explicit_forward_ref or field_type.field in self._defined_types:
-                    return f"types.{field_type.field}"
+                    return f"{field_type.field}"
                 else:
                     return f'"types.{field_type.field}"'
             else:
@@ -239,7 +257,7 @@ class CodeGen:
                         else:
                             editor.add_from_import("typing", "Tuple")
                             variant_type = (
-                                "Variant(field=Tuple[" + ", ".join(tuple_fields) + "])"
+                                    "Variant(field=Tuple[" + ", ".join(tuple_fields) + "])"
                             )
 
                     variant_name = pascal_to_snake(variant.name).upper()
@@ -249,7 +267,7 @@ class CodeGen:
                     class_code += ["    pass\n"]
 
             if editor.set_with_lock(f"class({type_def.name})", class_code):
-                self._add_packing_methods(editor)
+                self._add_packing_methods(editor, type_def.type.is_a(IdlTypeDefinitionTy.STRUCT))
 
             module_editor.add_from_import(
                 f".{camel_to_snake(type_def.name)}", type_def.name
@@ -311,7 +329,7 @@ class CodeGen:
             code += [f"    {variant_name} = {variant_inst}\n"]
 
         if editor.set_with_lock("accounts", code):
-            self._add_packing_methods(editor)
+            self._add_packing_methods(editor, is_struct=True)
 
         self._package_editor.add_import(f"{self.root_module}.accounts", "accounts")
 
@@ -342,9 +360,9 @@ class CodeGen:
                     editor.add_from_import("typing", "Optional")
 
                 if (
-                    account.field.name not in self.default_accounts
-                    and account_name not in self.default_accounts
-                    and not account.field.is_optional
+                        account.field.name not in self.default_accounts
+                        and account_name not in self.default_accounts
+                        and not account.field.is_optional
                 ):
                     code.append(f"{declaration},\n")
                 else:
@@ -503,7 +521,7 @@ def usize_type(editor: CodeEditor):
 
 
 def unix_timestamp_type(
-    editor: CodeEditor,
+        editor: CodeEditor,
 ):
     editor.add_from_import("solmate.dtypes", "UnixTimestamp")
     return "UnixTimestamp"
@@ -525,7 +543,6 @@ def side_type(editor: CodeEditor):
 
 
 def cli(idl_dir: str, out_dir: str, parent_module: str, skip_types: Set[str]):
-
     for protocol in get_protocols(idl_dir):
         print(f"Generating code for {protocol}")
         idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")

@@ -46,7 +46,7 @@
         {
           "name": "params",
           "type": {
-            "defined": "MyStruct"
+            "defined": "ArrayOfEnumWithFields"
           }
         }
       ]
@@ -54,7 +54,7 @@
   ],
   "accounts": [
     {
-      "name": "ArrayOfEnumWithFieldss",
+      "name": "ArrayOfEnumWithFields",
       "type": {
         "kind": "struct",
         "fields": [
@@ -80,7 +80,7 @@
           {
             "name": "riskEngineOutput",
             "type": {
-              "defined": "HealthResult"
+              "defined": "EnumWithFields"
             }
           }
         ]
