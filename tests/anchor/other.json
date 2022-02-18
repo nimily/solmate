@@ -1,0 +1,29 @@
+{
+  "version": "0.1.0",
+  "name": "other",
+  "constants": [],
+  "instructions": [],
+  "accounts": [
+  ],
+  "types": [
+    {
+      "name": "CrossIdlReferenceType",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "userAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "callBackInfoField",
+            "type": {
+              "defined": "CallBackInfo"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "events": []
+}

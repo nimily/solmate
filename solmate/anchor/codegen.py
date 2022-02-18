@@ -1,5 +1,6 @@
 import os
 import re
+from functools import partial
 from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional, List
 
 from solana.publickey import PublicKey
@@ -39,7 +40,7 @@ class CodeGen:
             program_id,
             root_module,
             source_path,
-            external_types=None,
+            external_types: Dict[str, Callable[[CodeEditor], str]] = None,
             default_accounts=None,
             instr_tag_values="incremental",
             accnt_tag_values="incremental",
@@ -502,12 +503,14 @@ class CodeGen:
         self._generate_errors()
         self._generate_state()
 
-        if check_missing_types:
-            undefined_types = self._expected_types.difference(self._defined_types)
-            if undefined_types:
+        undefined_types = self._expected_types.difference(self._defined_types)
+        if undefined_types:
+            if check_missing_types:
                 raise RuntimeError(
                     f"The following types are used but not defined: {undefined_types}"
                 )
+            else:
+                print(f"The following types are used but not defined: {undefined_types}")
 
     def save_modules(self):
         for editor in self._editors.values():
@@ -531,7 +534,7 @@ def program_error_type(editor: CodeEditor):
     return "ProgramError"
 
 
-def self_trade_behavior_type(editor):
+def self_trade_behavior_type(editor: CodeEditor):
     editor.add_from_import("dexterity.utils.aob.state.base", "SelfTradeBehavior")
     return "SelfTradeBehavior"
 
@@ -541,26 +544,44 @@ def side_type(editor: CodeEditor):
     return "Side"
 
 
+def defined_types_to_imports(root_module: str, idl: Idl) -> Dict[str, Callable[[CodeEditor], str]]:
+    def add_import(name: str, editor: CodeEditor) -> str:
+        editor.add_from_import(f"{root_module}.types.{pascal_to_snake(name)}", name)
+        return name
+
+    type_definitions = idl.types + idl.accounts
+    return dict(
+        ((ty.name, partial(add_import, ty.name)) for ty in type_definitions))
+
+
 def cli(idl_dir: str, out_dir: str, parent_module: str, skip_types: Set[str]):
+    protocol_to_idl_and_types = {}
     for protocol in get_protocols(idl_dir):
-        print(f"Generating code for {protocol}")
         idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")
 
         idl.types = list(filter(lambda x: x.name not in skip_types, idl.types))
         idl.accounts = list(filter(lambda x: x.name not in skip_types, idl.accounts))
+        protocol_to_idl_and_types[protocol] = (idl, defined_types_to_imports(f"{parent_module}.{protocol}", idl))
 
+    external_types = {
+        "usize": usize_type,
+        "UnixTimestamp": unix_timestamp_type,
+        "ProgramError": program_error_type,
+        "SelfTradeBehavior": self_trade_behavior_type,
+        "Side": side_type,
+    }
+    # allow each IDL to reference types defined in other IDLs
+    for (_, exported_types) in protocol_to_idl_and_types.values():
+        external_types.update(exported_types)
+
+    for protocol, (idl, _) in protocol_to_idl_and_types.items():
+        print(f"Generating code for {protocol}")
         codegen = CodeGen(
             idl,
             "teE55QrL4a4QSfydR9dnHF97jgCfptpuigbb53Lo95g",
             f"{parent_module}.{protocol}",
             out_dir,
-            external_types={
-                "usize": usize_type,
-                "UnixTimestamp": unix_timestamp_type,
-                "ProgramError": program_error_type,
-                "SelfTradeBehavior": self_trade_behavior_type,
-                "Side": side_type,
-            },
+            external_types=external_types,
             default_accounts={
                 "systemProgram": SYS_PROGRAM_ID,
                 "token_program": TOKEN_PROGRAM_ID,

@@ -2,7 +2,7 @@
 import codegen.idl
 
 from solana.publickey import PublicKey
-from codegen.idl.types import ArrayOfEnumWithFields
+from codegen.idl.types.array_of_enum_with_fields import ArrayOfEnumWithFields
 from typing import (
     List,
     Optional,
