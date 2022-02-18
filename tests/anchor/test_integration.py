@@ -12,7 +12,8 @@ def get_project_root() -> Path:
 def test():
     keypair = Keypair.generate()
     root = str(get_project_root())
-    codegen.cli(f"{root}/tests/anchor", root, "codegen", set())
+    pids = {"idl": keypair.public_key, "other": keypair.public_key}
+    codegen.cli(f"{root}/tests/anchor", root, pids, "codegen", set())
 
     from codegen.idl.types import CallBackInfo
     from codegen.other.types.cross_idl_reference_type import CrossIdlReferenceType
