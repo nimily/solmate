@@ -322,7 +322,7 @@ class CodeGen:
             ]
         )
         for account in self.idl.accounts:
-            editor.add_from_import(f"{self.root_module}.types", account.name)
+            editor.add_from_import(f"{self.root_module}.types.{pascal_to_snake(account.name)}", account.name)
 
             variant_name = pascal_to_snake(account.name).upper()
             variant_inst = f"{variant_type}(field={account.name})"
