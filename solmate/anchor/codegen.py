@@ -114,19 +114,19 @@ class CodeGen:
     def _get_type_as_string(
         self, field_type, editor, within_types, explicit_forward_ref=False
     ):
-        if field_type == IdlType.BOOL:
+        if field_type.is_a(IdlType.BOOL):
             return "bool"
         elif field_type <= IdlType.I128:
             editor.add_from_import("pod", field_type.get_name())
             return field_type.get_name()
-        elif field_type == IdlType.BYTES:
+        elif field_type.is_a(IdlType.BYTES):
             return "bytes"
-        elif field_type == IdlType.STRING:
+        elif field_type.is_a(IdlType.STRING):
             return "str"
-        elif field_type == IdlType.PUBLIC_KEY:
+        elif field_type.is_a(IdlType.PUBLIC_KEY):
             editor.add_from_import("solana.publickey", "PublicKey")
             return "PublicKey"
-        elif field_type == IdlType.DEFINED:
+        elif field_type.is_a(IdlType.DEFINED):
             if field_type.field in self.external_types:
                 return self.external_types[field_type.field](editor)
 
@@ -140,19 +140,19 @@ class CodeGen:
             else:
                 editor.add_from_import(f"{self.root_module}.types", field_type.field)
                 return f"{field_type.field}"
-        elif field_type in (
-            IdlType.OPTION,
-            IdlType.COPTION,
-            IdlType.STATIC,
-            IdlType.VEC,
+        elif int(field_type) in (
+                int(IdlType.OPTION),
+                int(IdlType.COPTION),
+                int(IdlType.STATIC),
+                int(IdlType.VEC),
         ):
-            if field_type == IdlType.COPTION:
+            if field_type.is_a(IdlType.COPTION):
                 type_name = "COption"
                 editor.add_from_import(f"solmate.dtypes", type_name)
             else:
-                if field_type == IdlType.OPTION:
+                if field_type.is_a(IdlType.OPTION):
                     type_name = "Option"
-                elif field_type == IdlType.STATIC:
+                elif field_type.is_a(IdlType.STATIC):
                     type_name = "Static"
                 else:
                     type_name = "Vec"
@@ -164,7 +164,7 @@ class CodeGen:
             )
             return f"{type_name}[{field_type_str}]"
 
-        elif field_type == IdlType.ARRAY:
+        elif field_type.is_a(IdlType.ARRAY):
             editor.add_from_import("pod", "FixedLenArray")
             elem_type, n_elem = field_type.field
             elem_type_str = self._get_type_as_string(
@@ -190,7 +190,7 @@ class CodeGen:
             editor.add_from_import("pod", "pod")
 
             class_code = ["@pod\n"]
-            if type_def.type == IdlTypeDefinitionTy.STRUCT:
+            if type_def.type.is_a(IdlTypeDefinitionTy.STRUCT):
                 class_code += [f"class {type_def.name}:\n"]
                 has_field = False
                 for field in type_def.type.field.fields:
@@ -212,7 +212,7 @@ class CodeGen:
                 for variant in variants:
                     if variant.fields is None:
                         variant_type = "None"
-                    elif variant.fields == EnumFields.NAMED:
+                    elif variant.fields.is_a(EnumFields.NAMED):
                         editor.add_from_import("pod", "Variant")
                         editor.add_from_import("pod", "named_fields")
                         # TODO complete me
@@ -380,7 +380,7 @@ class CodeGen:
             editor.add_from_import("solana.transaction", "TransactionInstruction")
             code.append("    keys = [\n")
             for account in instr.accounts:
-                if account == IdlAccountItem.IDL_ACCOUNT:
+                if account.is_a(IdlAccountItem.IDL_ACCOUNT):
                     name = camel_to_snake(account.field.name)
                     is_signer = account.field.is_signer
                     is_writable = account.field.is_mut
@@ -515,12 +515,12 @@ def program_error_type(editor: CodeEditor):
 
 
 def self_trade_behavior_type(editor):
-    editor.add_from_import("dexterity.utils.aob.state", "SelfTradeBehavior")
+    editor.add_from_import("dexterity.utils.aob.state.base", "SelfTradeBehavior")
     return "SelfTradeBehavior"
 
 
 def side_type(editor: CodeEditor):
-    editor.add_from_import("dexterity.utils.aob.state", "Side")
+    editor.add_from_import("dexterity.utils.aob.state.base", "Side")
     return "Side"
 
 
