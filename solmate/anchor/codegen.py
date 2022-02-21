@@ -4,8 +4,10 @@ import subprocess
 from functools import partial
 from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional
 
+from solana.keypair import Keypair
 from solana.publickey import PublicKey
 from solana.system_program import SYS_PROGRAM_ID
+from solana.sysvar import SYSVAR_RENT_PUBKEY
 from spl.token.constants import TOKEN_PROGRAM_ID
 
 from .editor import CodeEditor
@@ -16,8 +18,9 @@ from .idl import (
     IdlType,
     EnumFields,
     IdlAccountItem,
+    IdlInstruction,
 )
-from .utils import camel_to_snake, pascal_to_snake
+from solmate.utils import camel_to_snake, pascal_to_snake, snake_to_pascal
 
 
 class CodeGen:
@@ -31,21 +34,22 @@ class CodeGen:
     accnt_tag_values: Optional[Literal["incremental", "anchor"]]
 
     _editors: Dict[str, CodeEditor]
-    _defined_types: Set[str]
-    _expected_types: Set[str]
+    _all_defined_types: Set[str]  # all type names for this module
+    _defined_types: Set[str]  # all type names for which code is generated
+    _expected_types: Set[str]  # all type names used somewhere in this module
     _package_editor: CodeEditor
 
     def __init__(
-            self,
-            idl,
-            program_id,
-            root_module,
-            source_path,
-            external_types: Dict[str, Callable[[CodeEditor], str]] = None,
-            default_accounts=None,
-            instr_tag_values="incremental",
-            accnt_tag_values="incremental",
-            skip_types=None,
+        self,
+        idl,
+        program_id,
+        root_module,
+        source_path,
+        external_types: Dict[str, Callable[[CodeEditor], str]] = None,
+        default_accounts=None,
+        instr_tag_values="incremental",
+        accnt_tag_values="incremental",
+        skip_types=None,
     ):
         self.idl = idl
         self.program_id = program_id
@@ -62,7 +66,9 @@ class CodeGen:
         if default_accounts is None:
             self.default_accounts = dict()
         else:
-            self.default_accounts = default_accounts
+            self.default_accounts = {
+                camel_to_snake(name): val for name, val in default_accounts.items()
+            }
 
         if skip_types is None:
             self.skip_types = []
@@ -72,6 +78,9 @@ class CodeGen:
         self._editors = {}
         self._defined_types = set()
         self._expected_types = set()
+        self._all_defined_types = set()
+        for type_def in self._get_type_definitions():
+            self._all_defined_types.add(type_def.name)
 
     def _get_editor(self, name, is_file=True) -> CodeEditor:
         if name not in self._editors:
@@ -119,8 +128,7 @@ class CodeGen:
             )
 
         editor.add_lines(
-            "\n"
-            "    @classmethod\n",
+            "\n" "    @classmethod\n",
             "    def to_bytes(cls, obj, **kwargs):\n",
             '        return cls.pack(obj, converter="bytes", **kwargs)\n',
             "\n",
@@ -130,7 +138,7 @@ class CodeGen:
         )
 
     def _get_type_as_string(
-            self, field_type, editor, within_types, explicit_forward_ref=False
+        self, field_type, editor, within_types, explicit_forward_ref=False
     ):
         if field_type.is_a(IdlType.BOOL):
             return "bool"
@@ -145,13 +153,16 @@ class CodeGen:
             editor.add_from_import("solana.publickey", "PublicKey")
             return "PublicKey"
         elif field_type.is_a(IdlType.DEFINED):
-            if field_type.field in self.external_types:
-                return self.external_types[field_type.field](editor)
+            if field_type.field not in self._all_defined_types:
+                if field_type.field in self.external_types:
+                    return self.external_types[field_type.field](editor)
 
             self._expected_types.add(field_type.field)
             if within_types:
-                editor.add_from_import(f"{self.root_module}.types.{pascal_to_snake(field_type.field)}",
-                                       field_type.field)
+                editor.add_from_import(
+                    f"{self.root_module}.types.{pascal_to_snake(field_type.field)}",
+                    field_type.field,
+                )
                 if explicit_forward_ref or field_type.field in self._defined_types:
                     return f"{field_type.field}"
                 else:
@@ -160,10 +171,10 @@ class CodeGen:
                 editor.add_from_import(f"{self.root_module}.types", field_type.field)
                 return f"{field_type.field}"
         elif int(field_type) in (
-                int(IdlType.OPTION),
-                int(IdlType.COPTION),
-                int(IdlType.STATIC),
-                int(IdlType.VEC),
+            int(IdlType.OPTION),
+            int(IdlType.COPTION),
+            int(IdlType.STATIC),
+            int(IdlType.VEC),
         ):
             if field_type.is_a(IdlType.COPTION):
                 type_name = "COption"
@@ -258,7 +269,7 @@ class CodeGen:
                         else:
                             editor.add_from_import("typing", "Tuple")
                             variant_type = (
-                                    "Variant(field=Tuple[" + ", ".join(tuple_fields) + "])"
+                                "Variant(field=Tuple[" + ", ".join(tuple_fields) + "])"
                             )
 
                     variant_name = pascal_to_snake(variant.name).upper()
@@ -268,7 +279,9 @@ class CodeGen:
                     class_code += ["    pass\n"]
 
             if editor.set_with_lock(f"class({type_def.name})", class_code):
-                self._add_packing_methods(editor, type_def.type.is_a(IdlTypeDefinitionTy.STRUCT))
+                self._add_packing_methods(
+                    editor, type_def.type.is_a(IdlTypeDefinitionTy.STRUCT)
+                )
 
             module_editor.add_from_import(
                 f".{camel_to_snake(type_def.name)}", type_def.name
@@ -323,7 +336,10 @@ class CodeGen:
             ]
         )
         for account in self.idl.accounts:
-            editor.add_from_import(f"{self.root_module}.types.{pascal_to_snake(account.name)}", account.name)
+            editor.add_from_import(
+                f"{self.root_module}.types.{pascal_to_snake(account.name)}",
+                account.name,
+            )
 
             variant_name = pascal_to_snake(account.name).upper()
             variant_inst = f"{variant_type}(field={account.name})"
@@ -334,6 +350,157 @@ class CodeGen:
 
         self._package_editor.add_import(f"{self.root_module}.accounts", "accounts")
 
+    def _generate_instruction(self, module_editor: CodeEditor, instr: IdlInstruction):
+        instr_name = camel_to_snake(instr.name)
+
+        editor = self._get_editor(f"{self.root_module}.instructions.{instr_name}")
+        editor.add_from_import("solana.transaction", "AccountMeta")
+        editor.add_from_import("solana.publickey", "PublicKey")
+        editor.add_from_import("dataclasses", "dataclass")
+        editor.add_from_import("typing", "Optional")
+        editor.add_from_import("typing", "List")
+
+        # generating instruction account metas
+        module_editor.add_from_import(
+            f".{instr_name}", f"{snake_to_pascal(instr_name)}Ix"
+        )
+        module_editor.add_from_import(f".{instr_name}", f"{instr_name}")
+        code = [
+            "@dataclass\n" f"class {snake_to_pascal(instr_name)}Ix:\n",
+            "    program_id: PublicKey\n",
+            "\n",
+            "    # account metas\n",
+        ]
+        for account in instr.accounts:
+            account_name = camel_to_snake(account.field.name)
+            account_type = (
+                "Optional[AccountMeta]" if account.field.is_optional else "AccountMeta"
+            )
+            code.append(f"    {account_name}: {account_type}\n")
+
+        code.append(f"    remaining_accounts: Optional[List[AccountMeta]]\n")
+
+        # generating instruction data fields
+        if len(instr.args) > 0:
+            code += [
+                "\n",
+                "    # data fields\n",
+            ]
+        for arg in instr.args:
+            arg_type = self._get_type_as_string(arg.type, editor, within_types=False)
+            code.append(f"    {arg.name}: {arg_type}\n")
+
+        # generating to_instruction() function
+        code.append("\n")
+        code.append("    def to_instruction(self):\n")
+        code.append("        keys = []\n")
+        for account in instr.accounts:
+            account_name = camel_to_snake(account.field.name)
+            if account.field.is_optional:
+                code.append(f"        if self.{account_name} is not None:\n")
+                code.append(f"            keys.append(self.{account_name})\n")
+            else:
+                code.append(f"        keys.append(self.{account_name})\n")
+
+        code.append(f"        if self.remaining_accounts is not None:\n")
+        code.append(f"            keys.extend(self.remaining_accounts)\n")
+        code.append("\n")
+
+        # generating data
+        editor.add_from_import("io", "BytesIO")
+        code.append("        buffer = BytesIO()\n")
+        editor.add_from_import(".instruction_tag", "InstructionTag")
+        instr_tag_name = camel_to_snake(instr.name).upper()
+        code.append(
+            f"        buffer.write(InstructionTag.to_bytes(InstructionTag.{instr_tag_name}))\n"
+        )
+        for arg in instr.args:
+            arg_type = self._get_type_as_string(arg.type, editor, within_types=False)
+            code.append(f"        buffer.write({arg_type}.to_bytes(self.{arg.name}))\n")
+        code.append("\n")
+
+        editor.add_from_import("solana.transaction", "TransactionInstruction")
+        code.append("        return TransactionInstruction(\n")
+        code.append("            keys=keys,\n")
+        code.append(f"            program_id=self.program_id,\n")
+        code.append("            data=buffer.getvalue(),\n")
+        code.append("        )\n")
+        code.append("\n")
+        if editor.set_with_lock(f"ix_cls({instr_name})", code):
+            editor.add_lines("\n", "\n")
+
+        # generating helper function's code
+        code = [f"def {instr_name}(\n"]
+
+        # arguments
+        args_without_default = []
+        args_with_default = []
+        editor.add_from_import("typing", "Union")
+        meta_type = "Union[str, PublicKey, AccountMeta]"
+        for account in instr.accounts:
+            account_name = camel_to_snake(account.field.name)
+            account_type = (
+                f"Optional[{meta_type}]" if account.field.is_optional else meta_type
+            )
+            default_account = self.default_accounts.get(account_name, None)
+            if default_account is not None:
+                args_with_default.append(
+                    (account_name, account_type, f'PublicKey("{default_account}")')
+                )
+            elif account.field.is_optional:
+                args_with_default.append((account_name, account_type, "None"))
+            else:
+                args_without_default.append((account_name, account_type))
+
+        for arg in instr.args:
+            arg_type = self._get_type_as_string(arg.type, editor, within_types=False)
+            args_without_default.append((arg.name, arg_type))
+
+        args_with_default.append(
+            ("remaining_accounts", "Optional[List[AccountMeta]]", "None")
+        )
+        editor.add_import(self.root_module)
+        args_with_default.append(("program_id", "Optional[PublicKey]", "None"))
+
+        for arg_name, arg_type in args_without_default:
+            code.append(f"    {arg_name}: {arg_type},\n")
+
+        for arg_name, arg_type, arg_val in args_with_default:
+            code.append(f"    {arg_name}: {arg_type} = {arg_val},\n")
+
+        code.append(f"):\n")
+
+        # helper's body
+        code.append("    if program_id is None:\n")
+        code.append(f"        program_id = {self.root_module}.PROGRAM_ID\n")
+        code.append("\n")
+
+        editor.add_from_import("solmate.utils", "to_account_meta")
+        for account in instr.accounts:
+            account_name = camel_to_snake(account.field.name)
+            code.append(f"    if isinstance({account_name}, (str, PublicKey)):\n")
+            code.append(f"        {account_name} = to_account_meta(\n")
+            code.append(f"            {account_name},\n")
+            code.append(f"            is_signer={account.field.is_signer},\n")
+            code.append(f"            is_writable={account.field.is_mut},\n")
+            code.append(f"        )\n")
+        code.append("\n")
+
+        # creating the instruction and returning it as a regular instruction
+        code.append(f"    return {snake_to_pascal(instr_name)}Ix(\n")
+        code.append(f"        program_id=program_id,\n")
+        for account in instr.accounts:
+            account_name = camel_to_snake(account.field.name)
+            code.append(f"        {account_name}={account_name},\n")
+        code.append(f"        remaining_accounts=remaining_accounts,\n")
+        for arg in instr.args:
+            code.append(f"        {arg.name}={arg.name},\n")
+        code.append(f"    ).to_instruction()\n")
+        code.append(f"\n")
+
+        # writing instruction class
+        editor.set_with_lock(f"ix_fn({instr_name})", code)
+
     def _generate_instructions(self):
         if not self.idl.instructions:
             return
@@ -342,104 +509,7 @@ class CodeGen:
             f"{self.root_module}.instructions", is_file=False
         )
         for instr in self.idl.instructions:
-            instr_name = camel_to_snake(instr.name)
-
-            editor = self._get_editor(f"{self.root_module}.instructions.{instr_name}")
-            editor.add_from_import("solana.publickey", "PublicKey")
-
-            # generating the declaration
-            code = [f"def {instr_name}(\n"]
-
-            accounts_with_defaults = []
-            for account in instr.accounts:
-                account_name = camel_to_snake(account.field.name)
-                account_type = (
-                    "Optional[PublicKey]" if account.field.is_optional else "PublicKey"
-                )
-                declaration = f"    {account_name}: {account_type}"
-                if account.field.is_optional:
-                    editor.add_from_import("typing", "Optional")
-
-                if (
-                        account.field.name not in self.default_accounts
-                        and account_name not in self.default_accounts
-                        and not account.field.is_optional
-                ):
-                    code.append(f"{declaration},\n")
-                else:
-                    accounts_with_defaults.append((account, declaration))
-
-            for arg in instr.args:
-                arg_type = self._get_type_as_string(
-                    arg.type, editor, within_types=False
-                )
-                code.append(f"    {arg.name}: {arg_type},\n")
-
-            for account, declaration in accounts_with_defaults:
-                account_name = camel_to_snake(account.field.name)
-                if account_name in self.default_accounts:
-                    default_account = self.default_accounts[account_name]
-                elif account.field.name in self.default_accounts:
-                    default_account = self.default_accounts[account.field.name]
-                else:
-                    default_account = "None"
-
-                if isinstance(default_account, Callable):
-                    default_account = default_account(editor)
-
-                code.append(f'{declaration} = PublicKey("{default_account}"),\n')
-
-            editor.add_from_import("typing", "Optional")
-            editor.add_from_import("typing", "List")
-            code.append("    remaining_accounts: Optional[List[AccountMeta]] = None,\n")
-            code.append(f"):\n")
-
-            # generating account metas
-            editor.add_from_import("solana.transaction", "AccountMeta")
-            editor.add_from_import("solana.transaction", "TransactionInstruction")
-            code.append("    keys = [\n")
-            for account in instr.accounts:
-                if account.is_a(IdlAccountItem.IDL_ACCOUNT):
-                    name = camel_to_snake(account.field.name)
-                    is_signer = account.field.is_signer
-                    is_writable = account.field.is_mut
-                    code.append(
-                        f"        AccountMeta(pubkey={name}, is_signer={is_signer}, is_writable={is_writable}),\n"
-                    )
-                else:
-                    raise NotImplementedError()
-            code.append("    ]\n")
-            code.append("    if remaining_accounts is not None:\n")
-            code.append("        keys.extend(remaining_accounts)\n")
-            code.append("\n")
-
-            # generating data
-            editor.add_from_import("io", "BytesIO")
-            code.append("    buffer = BytesIO()\n")
-            editor.add_from_import(".instruction_tag", "InstructionTag")
-            instr_tag_name = camel_to_snake(instr.name).upper()
-            code.append(
-                f"    buffer.write(InstructionTag.to_bytes(InstructionTag.{instr_tag_name}))\n"
-            )
-            for arg in instr.args:
-                arg_type = self._get_type_as_string(
-                    arg.type, editor, within_types=False
-                )
-                code.append(f"    buffer.write({arg_type}.to_bytes({arg.name}))\n")
-            code.append("\n")
-
-            # generating the return statement
-            editor.add_import(self.root_module)
-            code.append("    return TransactionInstruction(\n")
-            code.append("        keys=keys,\n")
-            code.append(f"        program_id={self.root_module}.PROGRAM_ID,\n")
-            code.append("        data=buffer.getvalue(),\n")
-            code.append("    )\n")
-            code.append("\n")
-
-            editor.set_with_lock(f"instruction({instr_name})", code)
-
-            module_editor.add_from_import(f".{instr_name}", instr_name)
+            self._generate_instruction(module_editor, instr)
 
         # generating InstructionTag class
         instr_tag_editor = self._get_editor(
@@ -455,13 +525,18 @@ class CodeGen:
             variant_type = "Discriminant"
             instr_tag_editor.add_from_import("solmate.anchor", "Discriminant")
 
+        instr_tag_editor.add_from_import("pod", "pod")
         instr_tag_editor.add_from_import("pod", tag_type)
-        instr_tag_code = [f"class InstructionTag(Enum[{tag_type}]):\n"]
+        instr_tag_code = [
+            "@pod\n",
+            f"class InstructionTag(Enum[{tag_type}]):\n",
+        ]
         for instr in self.idl.instructions:
             instr_tag_name = camel_to_snake(instr.name).upper()
             instr_tag_code.append(f"    {instr_tag_name} = {variant_type}()\n")
 
         instr_tag_editor.set_with_lock(f"instruction_tag", instr_tag_code)
+        module_editor.add_from_import(".instruction_tag", "InstructionTag")
 
         self._package_editor.add_import(
             f"{self.root_module}.instructions", "instructions"
@@ -511,7 +586,9 @@ class CodeGen:
                     f"The following types are used but not defined: {undefined_types}"
                 )
             else:
-                print(f"The following types are used but not defined: {undefined_types}")
+                print(
+                    f"The following types are used but not defined: {undefined_types}"
+                )
 
     def save_modules(self):
         for editor in self._editors.values():
@@ -524,7 +601,7 @@ def usize_type(editor: CodeEditor):
 
 
 def unix_timestamp_type(
-        editor: CodeEditor,
+    editor: CodeEditor,
 ):
     editor.add_from_import("solmate.dtypes", "UnixTimestamp")
     return "UnixTimestamp"
@@ -545,26 +622,41 @@ def side_type(editor: CodeEditor):
     return "Side"
 
 
-def defined_types_to_imports(root_module: str, idl: Idl) -> Dict[str, Callable[[CodeEditor], str]]:
+def defined_types_to_imports(
+    root_module: str, idl: Idl
+) -> Dict[str, Callable[[CodeEditor], str]]:
     def add_import(name: str, editor: CodeEditor) -> str:
         editor.add_from_import(f"{root_module}.types.{pascal_to_snake(name)}", name)
         return name
 
     type_definitions = idl.types + idl.accounts
-    return dict(
-        ((ty.name, partial(add_import, ty.name)) for ty in type_definitions))
+    return dict(((ty.name, partial(add_import, ty.name)) for ty in type_definitions))
 
 
-def cli(idl_dir: str, out_dir: str, pids_dir: Union[str, Dict[str, PublicKey]], parent_module: str,
-        skip_types: Set[str]):
+def cli(
+    idl_dir: str,
+    out_dir: str,
+    pids_dir: Union[str, Dict[str, PublicKey]],
+    parent_module: str,
+    skip_types: Set[str],
+):
     protocol_to_idl_and_types = {}
-    protocol_to_pid = get_protocols(idl_dir, pids_dir)
+    # protocol_to_pid = get_protocols(idl_dir, pids_dir)
+    protocol_to_pid = {
+        "noop_risk_engine": Keypair().public_key,
+        "dex": "4z89uCmic8HJM9Gfaqoi5fikJ1A2UShwDPdNmKzxNMpa",
+        "instruments": Keypair().public_key,
+        # "noop_risk_engine": Keypair().public_key,
+    }
     for protocol in protocol_to_pid.keys():
         idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")
 
         idl.types = list(filter(lambda x: x.name not in skip_types, idl.types))
         idl.accounts = list(filter(lambda x: x.name not in skip_types, idl.accounts))
-        protocol_to_idl_and_types[protocol] = (idl, defined_types_to_imports(f"{parent_module}.{protocol}", idl))
+        protocol_to_idl_and_types[protocol] = (
+            idl,
+            defined_types_to_imports(f"{parent_module}.{protocol}", idl),
+        )
 
     external_types = {
         "usize": usize_type,
@@ -588,8 +680,10 @@ def cli(idl_dir: str, out_dir: str, pids_dir: Union[str, Dict[str, PublicKey]], 
             default_accounts={
                 "systemProgram": SYS_PROGRAM_ID,
                 "token_program": TOKEN_PROGRAM_ID,
+                "sysvar_rent": SYSVAR_RENT_PUBKEY,
             },
             accnt_tag_values="anchor",
+            instr_tag_values="anchor",
         )
         codegen.generate_code(check_missing_types=not True)
         codegen.save_modules()

@@ -1,4 +1,8 @@
 import re
+from typing import Union
+
+from solana.publickey import PublicKey
+from solana.transaction import AccountMeta
 
 
 def camel_to_snake(name):
@@ -27,3 +31,14 @@ def kebab_to_snake(name):
 
 def snake_to_kebab(name):
     return re.sub("_", "-", name)
+
+
+def to_account_meta(
+    account: Union[str, PublicKey],
+    is_signer: bool,
+    is_writable: bool,
+) -> AccountMeta:
+    if isinstance(account, str):
+        account = PublicKey(account)
+
+    return AccountMeta(account, is_signer=is_signer, is_writable=is_writable)

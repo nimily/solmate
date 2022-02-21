@@ -1,4 +1,4 @@
-from solmate.anchor.utils import (
+from solmate.utils import (
     camel_to_snake,
     snake_to_camel,
     pascal_to_snake,
