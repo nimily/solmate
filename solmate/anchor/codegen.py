@@ -641,13 +641,7 @@ def cli(
     skip_types: Set[str],
 ):
     protocol_to_idl_and_types = {}
-    # protocol_to_pid = get_protocols(idl_dir, pids_dir)
-    protocol_to_pid = {
-        "noop_risk_engine": Keypair().public_key,
-        "dex": "4z89uCmic8HJM9Gfaqoi5fikJ1A2UShwDPdNmKzxNMpa",
-        "instruments": Keypair().public_key,
-        # "noop_risk_engine": Keypair().public_key,
-    }
+    protocol_to_pid = get_protocols(idl_dir, pids_dir)
     for protocol in protocol_to_pid.keys():
         idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")
 
