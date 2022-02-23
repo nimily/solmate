@@ -326,9 +326,9 @@ class CodeGen:
 
         elif self.accnt_tag_values == "anchor":
             editor.add_from_import("pod", "U64")
-            editor.add_from_import("solmate.anchor", "Discriminant")
+            editor.add_from_import("solmate.anchor", "AccountDiscriminant")
             base = "Enum[U64]"
-            variant_type = "Discriminant"
+            variant_type = "AccountDiscriminant"
 
         code.extend(
             [
@@ -535,8 +535,8 @@ class CodeGen:
             instr_tag_editor.add_from_import("pod", "Variant")
         else:
             tag_type = "U64"
-            variant_type = "Discriminant"
-            instr_tag_editor.add_from_import("solmate.anchor", "Discriminant")
+            variant_type = "InstructionDiscriminant"
+            instr_tag_editor.add_from_import("solmate.anchor", "InstructionDiscriminant")
 
         instr_tag_editor.add_from_import("pod", "pod")
         instr_tag_editor.add_from_import("pod", tag_type)
