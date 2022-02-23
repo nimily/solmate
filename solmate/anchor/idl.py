@@ -137,7 +137,7 @@ class IdlAccounts:
 
 
 @pod_json
-class IdlAccountItem(Enum):  # here
+class IdlAccountItem(Enum):
     IDL_ACCOUNT = Variant(field=IdlAccount)
     IDL_ACCOUNTS = Variant(field=IdlAccounts)
 
@@ -146,7 +146,7 @@ class IdlAccountItem(Enum):  # here
         assert isinstance(raw, dict)
 
         if "accounts" in raw:
-            field_value = Vec[IdlAccounts].from_dict(raw)
+            field_value = Vec[IdlAccountItem].from_dict(raw["accounts"])
             return IdlAccountItem.IDL_ACCOUNTS(field_value)
         else:
             field_value = IdlAccount.from_dict(raw)

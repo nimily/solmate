@@ -4,6 +4,7 @@ import subprocess
 from functools import partial
 from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional
 
+from pod import Vec
 from solana.keypair import Keypair
 from solana.publickey import PublicKey
 from solana.system_program import SYS_PROGRAM_ID
@@ -350,8 +351,20 @@ class CodeGen:
 
         self._package_editor.add_import(f"{self.root_module}.accounts", "accounts")
 
+    @staticmethod
+    def _flatten_accounts(accounts: Vec[IdlAccountItem]):
+        flat = []
+        for account in accounts:
+            if int(account) == int(IdlAccountItem.IDL_ACCOUNT):
+                flat.append(account)
+            else:
+                flat += CodeGen._flatten_accounts(account.field)
+
+        return flat
+
     def _generate_instruction(self, module_editor: CodeEditor, instr: IdlInstruction):
         instr_name = camel_to_snake(instr.name)
+        instr_accounts = self._flatten_accounts(instr.accounts)
 
         editor = self._get_editor(f"{self.root_module}.instructions.{instr_name}")
         editor.add_from_import("solana.transaction", "AccountMeta")
@@ -371,7 +384,7 @@ class CodeGen:
             "\n",
             "    # account metas\n",
         ]
-        for account in instr.accounts:
+        for account in instr_accounts:
             account_name = camel_to_snake(account.field.name)
             account_type = (
                 "Optional[AccountMeta]" if account.field.is_optional else "AccountMeta"
@@ -394,7 +407,7 @@ class CodeGen:
         code.append("\n")
         code.append("    def to_instruction(self):\n")
         code.append("        keys = []\n")
-        for account in instr.accounts:
+        for account in instr_accounts:
             account_name = camel_to_snake(account.field.name)
             if account.field.is_optional:
                 code.append(f"        if self.{account_name} is not None:\n")
@@ -437,7 +450,7 @@ class CodeGen:
         args_with_default = []
         editor.add_from_import("typing", "Union")
         meta_type = "Union[str, PublicKey, AccountMeta]"
-        for account in instr.accounts:
+        for account in instr_accounts:
             account_name = camel_to_snake(account.field.name)
             account_type = (
                 f"Optional[{meta_type}]" if account.field.is_optional else meta_type
@@ -476,7 +489,7 @@ class CodeGen:
         code.append("\n")
 
         editor.add_from_import("solmate.utils", "to_account_meta")
-        for account in instr.accounts:
+        for account in instr_accounts:
             account_name = camel_to_snake(account.field.name)
             code.append(f"    if isinstance({account_name}, (str, PublicKey)):\n")
             code.append(f"        {account_name} = to_account_meta(\n")
@@ -489,7 +502,7 @@ class CodeGen:
         # creating the instruction and returning it as a regular instruction
         code.append(f"    return {snake_to_pascal(instr_name)}Ix(\n")
         code.append(f"        program_id=program_id,\n")
-        for account in instr.accounts:
+        for account in instr_accounts:
             account_name = camel_to_snake(account.field.name)
             code.append(f"        {account_name}={account_name},\n")
         code.append(f"        remaining_accounts=remaining_accounts,\n")
