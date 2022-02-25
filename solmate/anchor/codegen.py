@@ -237,8 +237,8 @@ class CodeGen:
 
             else:
                 editor.add_from_import("pod", "Enum")
-                editor.add_from_import("pod", "U8")
-                class_code += [f"class {type_def.name}(Enum[U8]):\n"]
+                editor.add_from_import("pod", "U64")
+                class_code += [f"class {type_def.name}(Enum[U64]):\n"]
                 variants = type_def.type.field.variants
                 for variant in variants:
                     if variant.fields is None:
