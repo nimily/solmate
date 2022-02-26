@@ -536,7 +536,9 @@ class CodeGen:
         else:
             tag_type = "U64"
             variant_type = "InstructionDiscriminant"
-            instr_tag_editor.add_from_import("solmate.anchor", "InstructionDiscriminant")
+            instr_tag_editor.add_from_import(
+                "solmate.anchor", "InstructionDiscriminant"
+            )
 
         instr_tag_editor.add_from_import("pod", "pod")
         instr_tag_editor.add_from_import("pod", tag_type)
@@ -566,8 +568,31 @@ class CodeGen:
         if not self.idl.errors:
             return
 
-        # TODO implement code generation for errors
-        print("Skipping errors...")
+        code = ["@pod\n", "class Error(Enum[U64]):\n"]
+        for error in self.idl.errors:
+            error_name = pascal_to_snake(error.name).upper()
+            code.append(
+                f'    {error_name} = Variant({error.code}, field="{error.msg}")\n'
+            )
+
+        editor = self._get_editor(f"{self.root_module}.errors")
+        editor.add_from_import("pod", "pod")
+        editor.add_from_import("pod", "Enum")
+        editor.add_from_import("pod", "Variant")
+        editor.add_from_import("pod", "U64")
+        editor.set_with_lock("errors", code)
+        editor.add_lines(
+            "\n",
+            "    @classmethod\n",
+            "    def to_bytes(cls, obj, **kwargs):\n",
+            '        return cls.pack(obj, converter="bytes", **kwargs)\n',
+            "\n",
+            "    @classmethod\n",
+            "    def from_bytes(cls, raw, **kwargs):\n",
+            '        return cls.unpack(raw, converter="bytes", **kwargs)\n',
+        )
+
+        self._package_editor.add_from_import(f"{self.root_module}.errors", "Errors")
 
     def _generate_state(self):
         if not self.idl.state:
