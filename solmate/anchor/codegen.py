@@ -602,19 +602,19 @@ class CodeGen:
         editor.add_from_import("pod", "Enum")
         editor.add_from_import("pod", "Variant")
         editor.add_from_import("pod", "U64")
-        editor.set_with_lock("errors", code)
-        editor.add_lines(
-            "\n",
-            "    @classmethod\n",
-            "    def to_bytes(cls, obj, **kwargs):\n",
-            '        return cls.pack(obj, converter="bytes", **kwargs)\n',
-            "\n",
-            "    @classmethod\n",
-            "    def from_bytes(cls, raw, **kwargs):\n",
-            '        return cls.unpack(raw, converter="bytes", **kwargs)\n',
-        )
+        if editor.set_with_lock("errors", code):
+            editor.add_lines(
+                "\n",
+                "    @classmethod\n",
+                "    def to_bytes(cls, obj, **kwargs):\n",
+                '        return cls.pack(obj, converter="bytes", **kwargs)\n',
+                "\n",
+                "    @classmethod\n",
+                "    def from_bytes(cls, raw, **kwargs):\n",
+                '        return cls.unpack(raw, converter="bytes", **kwargs)\n',
+            )
 
-        self._package_editor.add_from_import(f"{self.root_module}.errors", "Errors")
+        self._package_editor.add_from_import(f"{self.root_module}.errors", "Error")
 
     def _generate_state(self):
         if not self.idl.state:
