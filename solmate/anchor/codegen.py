@@ -1,15 +1,9 @@
 import os
-import re
-import subprocess
 from functools import partial
 from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional
 
 from pod import Vec
-from solana.keypair import Keypair
 from solana.publickey import PublicKey
-from solana.system_program import SYS_PROGRAM_ID
-from solana.sysvar import SYSVAR_RENT_PUBKEY
-from spl.token.constants import TOKEN_PROGRAM_ID
 
 from .editor import CodeEditor
 from .idl import (
@@ -26,7 +20,7 @@ from solmate.utils import camel_to_snake, pascal_to_snake, snake_to_pascal
 
 class CodeGen:
     idl: Idl
-    program_id: Union[PublicKey, str]
+    addresses: Dict[str, str]
     root_module: str
     source_path: str
     external_types: Dict[str, Callable]
@@ -59,7 +53,7 @@ class CodeGen:
     def __init__(
         self,
         idl,
-        program_id,
+        addresses,
         root_module,
         source_path,
         external_types: Dict[str, Callable[[CodeEditor], str]] = None,
@@ -69,7 +63,7 @@ class CodeGen:
         skip_types=None,
     ):
         self.idl = idl
-        self.program_id = program_id
+        self.addresses = addresses
         self.root_module = root_module
         self.source_path = source_path
         self.instr_tag_values = instr_tag_values  # type: ignore
@@ -307,6 +301,20 @@ class CodeGen:
             self._defined_types.add(type_def.name)
             self._package_editor.add_import(f"{self.root_module}.types", "types")
 
+    def _generate_addresses(self):
+        editor = self._get_editor(f"{self.root_module}.addrs")
+
+        editor.add_from_import("solana.publickey", "PublicKey")
+
+        code = []
+        for name, addr in self.addresses.items():
+            code.append(f'{name} = PublicKey("{addr}")\n')
+        editor.set_with_lock("addresses", code)
+
+        program_id = self._get_account_address(self._package_editor, "program_id")
+        if program_id is None:
+            raise RuntimeError("Default accounts must contain program_id.")
+
     def _generate_constants(self):
         if not self.idl.constants:
             return
@@ -380,6 +388,16 @@ class CodeGen:
                 flat += CodeGen._flatten_accounts(account.field)
 
         return flat
+
+    def _get_account_address(self, editor, account_name):
+        default_account = self.default_accounts.get(account_name, None)
+        if default_account is not None:
+            if isinstance(default_account, (str, PublicKey)):
+                expr = f'PublicKey("{default_account}")'
+            else:
+                expr = default_account(editor)
+            return expr
+        return None
 
     def _generate_instruction(self, module_editor: CodeEditor, instr: IdlInstruction):
         instr_name = camel_to_snake(instr.name)
@@ -477,11 +495,9 @@ class CodeGen:
             account_type = (
                 f"Optional[{meta_type}]" if account.field.is_optional else meta_type
             )
-            default_account = self.default_accounts.get(account_name, None)
+            default_account = self._get_account_address(editor, account_name)
             if default_account is not None:
-                args_with_default.append(
-                    (account_name, account_type, f'PublicKey("{default_account}")')
-                )
+                args_with_default.append((account_name, account_type, default_account))
             elif account.field.is_optional:
                 args_with_default.append((account_name, account_type, "None"))
             else:
@@ -494,7 +510,6 @@ class CodeGen:
         args_with_default.append(
             ("remaining_accounts", "Optional[List[AccountMeta]]", "None")
         )
-        editor.add_import(self.root_module)
         args_with_default.append(("program_id", "Optional[PublicKey]", "None"))
 
         for arg_name, arg_type in args_without_default:
@@ -507,7 +522,9 @@ class CodeGen:
 
         # helper's body
         code.append("    if program_id is None:\n")
-        code.append(f"        program_id = {self.root_module}.PROGRAM_ID\n")
+        code.append(
+            f"        program_id = {self._get_account_address(editor, 'program_id')}\n"
+        )
         code.append("\n")
 
         editor.add_from_import("solmate.utils", "to_account_meta")
@@ -626,11 +643,7 @@ class CodeGen:
     def generate_code(self, check_missing_types=False):
         self._package_editor = self._get_editor(self.root_module, is_file=False)
 
-        self._package_editor.add_from_import("solana.publickey", "PublicKey")
-        self._package_editor.set_with_lock(
-            "program_id", [f'PROGRAM_ID = PublicKey("{self.program_id}")\n']
-        )
-
+        self._generate_addresses()
         self._generate_types()
         self._generate_constants()
         self._generate_accounts()
@@ -685,7 +698,7 @@ def defined_types_to_imports(
 
 def cli(
     idl_path: str,
-    program_id: str,
+    addresses: str,
     source_path: str,
     root_module: str,
     skip_types: Set[str],
@@ -711,7 +724,7 @@ def cli(
     print(f"Generating code for {idl_path}...")
     codegen = CodeGen(
         idl=idl,
-        program_id=program_id,
+        addresses=addresses,
         root_module=root_module,
         source_path=source_path,
         external_types=external_types,
