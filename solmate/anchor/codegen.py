@@ -715,12 +715,6 @@ def cli(
         "ProgramError": program_error_type,
     }
 
-    # default_accounts = {
-    #     "system_program": SYS_PROGRAM_ID,
-    #     "token_program": TOKEN_PROGRAM_ID,
-    #     "sysvar_rent": SYSVAR_RENT_PUBKEY,
-    # }
-    #
     print(f"Generating code for {idl_path}...")
     codegen = CodeGen(
         idl=idl,
