@@ -31,8 +31,24 @@ class CodeGen:
     source_path: str
     external_types: Dict[str, Callable]
     default_accounts: Dict[str, Union[PublicKey, str, Callable]]
-    instr_tag_values: Literal["incremental", "anchor"]
-    accnt_tag_values: Optional[Literal["incremental", "anchor"]]
+    instr_tag_values: Literal[
+        "anchor",
+        "incremental:U8",
+        "incremental:U16",
+        "incremental:U32",
+        "incremental:U64",
+        "incremental:U128",
+    ]
+    accnt_tag_values: Optional[
+        Literal[
+            "anchor",
+            "incremental:U8",
+            "incremental:U16",
+            "incremental:U32",
+            "incremental:U64",
+            "incremental:U128",
+        ]
+    ]
 
     _editors: Dict[str, CodeEditor]
     _all_defined_types: Set[str]  # all type names for this module
@@ -48,8 +64,8 @@ class CodeGen:
         source_path,
         external_types: Dict[str, Callable[[CodeEditor], str]] = None,
         default_accounts=None,
-        instr_tag_values="incremental",
-        accnt_tag_values="incremental",
+        instr_tag_values="incremental[U8]",
+        accnt_tag_values="incremental[U8]",
         skip_types=None,
     ):
         self.idl = idl
@@ -319,16 +335,19 @@ class CodeGen:
 
         base = None
         variant_type = None
-        if self.accnt_tag_values == "incremental":
-            editor.add_from_import("pod", "Variant")
-            base = "Enum"
-            variant_type = "Variant"
 
-        elif self.accnt_tag_values == "anchor":
+        if self.accnt_tag_values == "anchor":
             editor.add_from_import("pod", "U64")
             editor.add_from_import("solmate.anchor", "AccountDiscriminant")
             base = "Enum[U64]"
             variant_type = "AccountDiscriminant"
+
+        elif self.accnt_tag_values is not None:
+            tag_type = self.instr_tag_values.split(":")[1]
+            editor.add_from_import("pod", "Variant")
+            editor.add_from_import("pod", tag_type)
+            base = f"Enum[{tag_type}]"
+            variant_type = "Variant"
 
         code.extend(
             [
@@ -370,6 +389,7 @@ class CodeGen:
         editor.add_from_import("solana.transaction", "AccountMeta")
         editor.add_from_import("solana.publickey", "PublicKey")
         editor.add_from_import("dataclasses", "dataclass")
+        editor.add_from_import("pod", "BYTES_CATALOG")
         editor.add_from_import("typing", "Optional")
         editor.add_from_import("typing", "List")
 
@@ -429,7 +449,9 @@ class CodeGen:
         )
         for arg in instr.args:
             arg_type = self._get_type_as_string(arg.type, editor, within_types=False)
-            code.append(f"        buffer.write({arg_type}.to_bytes(self.{arg.name}))\n")
+            code.append(
+                f"        buffer.write(BYTES_CATALOG.pack({arg_type}, self.{arg.name}))\n"
+            )
         code.append("\n")
 
         editor.add_from_import("solana.transaction", "TransactionInstruction")
@@ -529,16 +551,16 @@ class CodeGen:
             f"{self.root_module}.instructions.instruction_tag"
         )
         instr_tag_editor.add_from_import("pod", "Enum")
-        if self.instr_tag_values == "incremental":
-            tag_type = "U8"
-            variant_type = "Variant"
-            instr_tag_editor.add_from_import("pod", "Variant")
-        else:
+        if self.instr_tag_values == "anchor":
             tag_type = "U64"
             variant_type = "InstructionDiscriminant"
             instr_tag_editor.add_from_import(
                 "solmate.anchor", "InstructionDiscriminant"
             )
+        else:
+            tag_type = self.instr_tag_values.split(":")[1]
+            variant_type = "Variant"
+            instr_tag_editor.add_from_import("pod", "Variant")
 
         instr_tag_editor.add_from_import("pod", "pod")
         instr_tag_editor.add_from_import("pod", tag_type)
@@ -650,16 +672,6 @@ def program_error_type(editor: CodeEditor):
     return "ProgramError"
 
 
-def self_trade_behavior_type(editor: CodeEditor):
-    editor.add_from_import("dexterity.utils.aob.state.base", "SelfTradeBehavior")
-    return "SelfTradeBehavior"
-
-
-def side_type(editor: CodeEditor):
-    editor.add_from_import("dexterity.utils.aob.state.base", "Side")
-    return "Side"
-
-
 def defined_types_to_imports(
     root_module: str, idl: Idl
 ) -> Dict[str, Callable[[CodeEditor], str]]:
@@ -672,94 +684,41 @@ def defined_types_to_imports(
 
 
 def cli(
-    idl_dir: str,
-    out_dir: str,
-    pids_dir: Union[str, Dict[str, PublicKey]],
-    parent_module: str,
+    idl_path: str,
+    program_id: str,
+    source_path: str,
+    root_module: str,
     skip_types: Set[str],
+    default_accounts: Dict[str, str],
+    instr_tag_values: Literal["anchor", "incremental"],
+    accnt_tag_values: Literal["anchor", "incremental"],
 ):
-    protocol_to_idl_and_types = {}
-    protocol_to_pid = get_protocols(idl_dir, pids_dir)
-    for protocol in protocol_to_pid.keys():
-        idl = Idl.from_json_file(f"{idl_dir}/{protocol}.json")
-
-        idl.types = list(filter(lambda x: x.name not in skip_types, idl.types))
-        idl.accounts = list(filter(lambda x: x.name not in skip_types, idl.accounts))
-        protocol_to_idl_and_types[protocol] = (
-            idl,
-            defined_types_to_imports(f"{parent_module}.{protocol}", idl),
-        )
+    idl = Idl.from_json_file(idl_path)
+    idl.types = list(filter(lambda x: x.name not in skip_types, idl.types))
 
     external_types = {
         "usize": usize_type,
         "UnixTimestamp": unix_timestamp_type,
         "ProgramError": program_error_type,
-        "SelfTradeBehavior": self_trade_behavior_type,
-        "Side": side_type,
     }
-    # allow each IDL to reference types defined in other IDLs
-    for (_, exported_types) in protocol_to_idl_and_types.values():
-        external_types.update(exported_types)
 
-    for protocol, (idl, _) in protocol_to_idl_and_types.items():
-        print(f"Generating code for {protocol}")
-        codegen = CodeGen(
-            idl,
-            protocol_to_pid[protocol],
-            f"{parent_module}.{protocol}",
-            out_dir,
-            external_types=external_types,
-            default_accounts={
-                "systemProgram": SYS_PROGRAM_ID,
-                "token_program": TOKEN_PROGRAM_ID,
-                "sysvar_rent": SYSVAR_RENT_PUBKEY,
-            },
-            accnt_tag_values="anchor",
-            instr_tag_values="anchor",
-        )
-        codegen.generate_code(check_missing_types=not True)
-        codegen.save_modules()
-
-
-def get_protocols(idl_dir: str, pids: Union[str, Dict[str, str]]) -> Dict[str, str]:
-    protocols = set()
-    for filename in os.listdir(idl_dir):
-        match = re.search(r"([a-z_\-]+).json", filename)
-        if match is None:
-            continue
-        protocol = match.groups()[0]
-        protocols.add(protocol)
-
-    # if a path was passed in, load pids from the directory
-    if isinstance(pids, str):
-        pids = dir_to_pids(pids)
-
-    intersection = {}
-    for protocol, pid in pids.items():
-        if protocol in protocols:
-            intersection[protocol] = pid
-    for protocol in protocols:
-        if protocol not in pids:
-            print("WARNING: found idl file with no matching program id: ", protocol)
-
-    return intersection
-
-
-def dir_to_pids(dir: str) -> Dict[str, str]:
-    program_to_id = {}
-    for filename in os.listdir(dir):
-        match = re.search(r"([a-z_]+)-keypair.json", filename)
-        if match is None:
-            continue
-        program = match.groups()[0]
-        program_to_id[program] = run(f"solana-keygen pubkey {dir}/{filename}")
-    return program_to_id
-
-
-def run(cmd, debug=False):
-    if debug:
-        print(cmd)
-    res = subprocess.check_output(cmd, shell=True).strip().decode("utf-8")
-    if debug:
-        print(res)
-    return res
+    # default_accounts = {
+    #     "system_program": SYS_PROGRAM_ID,
+    #     "token_program": TOKEN_PROGRAM_ID,
+    #     "sysvar_rent": SYSVAR_RENT_PUBKEY,
+    # }
+    #
+    print(f"Generating code for {idl_path}...")
+    codegen = CodeGen(
+        idl=idl,
+        program_id=program_id,
+        root_module=root_module,
+        source_path=source_path,
+        external_types=external_types,
+        default_accounts=default_accounts,
+        instr_tag_values=instr_tag_values,
+        accnt_tag_values=accnt_tag_values,
+        skip_types=skip_types,
+    )
+    codegen.generate_code(check_missing_types=not True)
+    codegen.save_modules()
