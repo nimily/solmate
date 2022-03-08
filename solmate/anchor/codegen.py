@@ -673,9 +673,7 @@ def usize_type(editor: CodeEditor):
     return "Usize"
 
 
-def unix_timestamp_type(
-    editor: CodeEditor,
-):
+def unix_timestamp_type(editor: CodeEditor):
     editor.add_from_import("solmate.dtypes", "UnixTimestamp")
     return "UnixTimestamp"
 
