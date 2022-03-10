@@ -1,8 +1,8 @@
 # LOCK-BEGIN[imports]: DON'T MODIFY
-import codegen.idl.types as types
-import codegen.idl.accounts as accounts
-import codegen.idl.instructions as instructions
 import codegen.idl.constants as constants
+import codegen.idl.instructions as instructions
+import codegen.idl.accounts as accounts
+import codegen.idl.types as types
 
 from solana.publickey import PublicKey
 
@@ -10,5 +10,5 @@ from solana.publickey import PublicKey
 
 
 # LOCK-BEGIN[program_id]: DON'T MODIFY
-PROGRAM_ID = PublicKey("3tTte8kGgvsSmgRt4D6rC5JbGuELwQgRYDTjuRgD7aHt")
+PROGRAM_ID = PublicKey("Gum5M71ZgGyiashxCYpAF1DNkaZZf5RKfwH9xGAomvJf")
 # LOCK-END

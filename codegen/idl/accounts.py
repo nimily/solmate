@@ -4,7 +4,7 @@ from pod import (
     U64,
     pod,
 )
-from solmate.anchor import Discriminant
+from solmate.anchor import AccountDiscriminant
 from codegen.idl.types.array_of_enum_with_fields import ArrayOfEnumWithFields
 from codegen.idl.types.risk_output_register import RiskOutputRegister
 
@@ -14,8 +14,8 @@ from codegen.idl.types.risk_output_register import RiskOutputRegister
 # LOCK-BEGIN[accounts]: DON'T MODIFY
 @pod
 class Accounts(Enum[U64]):
-    ARRAY_OF_ENUM_WITH_FIELDS = Discriminant(field=ArrayOfEnumWithFields)
-    RISK_OUTPUT_REGISTER = Discriminant(field=RiskOutputRegister)
+    ARRAY_OF_ENUM_WITH_FIELDS = AccountDiscriminant(field=ArrayOfEnumWithFields)
+    RISK_OUTPUT_REGISTER = AccountDiscriminant(field=RiskOutputRegister)
     # LOCK-END
 
     @classmethod

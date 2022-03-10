@@ -7,5 +7,5 @@ from solana.publickey import PublicKey
 
 
 # LOCK-BEGIN[program_id]: DON'T MODIFY
-PROGRAM_ID = PublicKey("3tTte8kGgvsSmgRt4D6rC5JbGuELwQgRYDTjuRgD7aHt")
+PROGRAM_ID = PublicKey("Gum5M71ZgGyiashxCYpAF1DNkaZZf5RKfwH9xGAomvJf")
 # LOCK-END

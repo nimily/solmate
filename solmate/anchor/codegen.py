@@ -118,14 +118,14 @@ class CodeGen:
             editor.add_lines(
                 "\n",
                 "    @classmethod\n",
-                "    def _to_bytes_partial(cls, buffer, obj):\n",
+                "    def _to_bytes_partial(cls, buffer, obj, **kwargs):\n",
                 "        # to modify packing, change this method\n",
-                "        return super()._to_bytes_partial(buffer, obj)\n",
+                "        return super()._to_bytes_partial(buffer, obj, **kwargs)\n",
                 "\n",
                 "    @classmethod\n",
-                "    def _from_bytes_partial(cls, buffer):\n",
+                "    def _from_bytes_partial(cls, buffer, **kwargs):\n",
                 "        # to modify unpacking, change this method\n",
-                "        return super()._from_bytes_partial(buffer)\n",
+                "        return super()._from_bytes_partial(buffer, **kwargs)\n",
             )
 
         editor.add_lines(
@@ -237,8 +237,8 @@ class CodeGen:
 
             else:
                 editor.add_from_import("pod", "Enum")
-                editor.add_from_import("pod", "U64")
-                class_code += [f"class {type_def.name}(Enum[U64]):\n"]
+                editor.add_from_import("pod", "AutoTagType")
+                class_code += [f"class {type_def.name}(Enum[AutoTagType]):\n"]
                 variants = type_def.type.field.variants
                 for variant in variants:
                     if variant.fields is None:

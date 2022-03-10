@@ -4,7 +4,7 @@ from pod import (
     U64,
     pod,
 )
-from solmate.anchor import Discriminant
+from solmate.anchor import InstructionDiscriminant
 
 # LOCK-END
 
@@ -12,5 +12,5 @@ from solmate.anchor import Discriminant
 # LOCK-BEGIN[instruction_tag]: DON'T MODIFY
 @pod
 class InstructionTag(Enum[U64]):
-    SOME_IX_NAME = Discriminant()
+    SOME_IX_NAME = InstructionDiscriminant()
     # LOCK-END

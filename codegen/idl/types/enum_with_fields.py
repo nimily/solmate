@@ -1,7 +1,7 @@
 # LOCK-BEGIN[imports]: DON'T MODIFY
 from pod import (
+    AutoTagType,
     Enum,
-    U8,
     Variant,
     pod,
 )
@@ -13,20 +13,20 @@ from codegen.idl.types.action_status import ActionStatus
 
 # LOCK-BEGIN[class(EnumWithFields)]: DON'T MODIFY
 @pod
-class EnumWithFields(Enum[U8]):
+class EnumWithFields(Enum[AutoTagType]):
     HEALTH = Variant(field=CallBackInfo)
     LIQUIDATION = Variant(field=ActionStatus)
     # LOCK-END
 
     @classmethod
-    def _to_bytes_partial(cls, buffer, obj):
+    def _to_bytes_partial(cls, buffer, obj, **kwargs):
         # to modify packing, change this method
-        return super()._to_bytes_partial(buffer, obj)
+        return super()._to_bytes_partial(buffer, obj, **kwargs)
 
     @classmethod
-    def _from_bytes_partial(cls, buffer):
+    def _from_bytes_partial(cls, buffer, **kwargs):
         # to modify unpacking, change this method
-        return super()._from_bytes_partial(buffer)
+        return super()._from_bytes_partial(buffer, **kwargs)
 
     @classmethod
     def to_bytes(cls, obj, **kwargs):

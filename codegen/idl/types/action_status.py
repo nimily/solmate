@@ -1,7 +1,7 @@
 # LOCK-BEGIN[imports]: DON'T MODIFY
 from pod import (
+    AutoTagType,
     Enum,
-    U8,
     pod,
 )
 
@@ -10,20 +10,20 @@ from pod import (
 
 # LOCK-BEGIN[class(ActionStatus)]: DON'T MODIFY
 @pod
-class ActionStatus(Enum[U8]):
+class ActionStatus(Enum[AutoTagType]):
     APPROVED = None
     NOT_APPROVED = None
     # LOCK-END
 
     @classmethod
-    def _to_bytes_partial(cls, buffer, obj):
+    def _to_bytes_partial(cls, buffer, obj, **kwargs):
         # to modify packing, change this method
-        return super()._to_bytes_partial(buffer, obj)
+        return super()._to_bytes_partial(buffer, obj, **kwargs)
 
     @classmethod
-    def _from_bytes_partial(cls, buffer):
+    def _from_bytes_partial(cls, buffer, **kwargs):
         # to modify unpacking, change this method
-        return super()._from_bytes_partial(buffer)
+        return super()._from_bytes_partial(buffer, **kwargs)
 
     @classmethod
     def to_bytes(cls, obj, **kwargs):
