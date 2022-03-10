@@ -10,5 +10,5 @@ from solana.publickey import PublicKey
 
 
 # LOCK-BEGIN[program_id]: DON'T MODIFY
-PROGRAM_ID = PublicKey("Gum5M71ZgGyiashxCYpAF1DNkaZZf5RKfwH9xGAomvJf")
+PROGRAM_ID = PublicKey("3b76fNWteyMwHLCMSzD2Ke6Tq5GuLv7fjSNQbXCEFGfq")
 # LOCK-END

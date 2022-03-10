@@ -22,6 +22,12 @@ def register_solana_types_converters():
 
             raise ValueError()
 
+        def calc_size(self, type_, obj, **kwargs) -> int:
+            if type_ == PublicKey:
+                return 32
+
+            raise ValueError()
+
         def calc_max_size(self, type_) -> int:
             if type_ == PublicKey:
                 return 32

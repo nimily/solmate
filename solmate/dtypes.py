@@ -1,6 +1,6 @@
 from typing import Type
 
-from pod import U32, U64, I64, Enum, Variant, Option, pod
+from pod import U32, U64, I64, Enum, Variant, Option, pod, AutoTagType
 from pod._utils import _GetitemToCall, get_calling_module
 
 
@@ -65,7 +65,7 @@ class ProgramError(Enum):
 
 def _coption(name, type_: Type):
     @pod
-    class _COption(Enum[U32]):
+    class _COption(Enum[AutoTagType]):
         NONE = Variant()
         SOME = Variant(field=type_, module=get_calling_module(4))
 
