@@ -1,6 +1,6 @@
 # LOCK-BEGIN[imports]: DON'T MODIFY
-from pod import pod
 from codegen.idl.types.enum_with_fields import EnumWithFields
+from pod import pod
 
 # LOCK-END
 

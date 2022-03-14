@@ -1,12 +1,12 @@
 # LOCK-BEGIN[imports]: DON'T MODIFY
+from codegen.idl.types.array_of_enum_with_fields import ArrayOfEnumWithFields
+from codegen.idl.types.risk_output_register import RiskOutputRegister
 from pod import (
     Enum,
     U64,
     pod,
 )
 from solmate.anchor import AccountDiscriminant
-from codegen.idl.types.array_of_enum_with_fields import ArrayOfEnumWithFields
-from codegen.idl.types.risk_output_register import RiskOutputRegister
 
 # LOCK-END
 

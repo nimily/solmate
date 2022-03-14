@@ -31,13 +31,13 @@ class ImportCollector:
     def as_source_code(self):
         code = []
 
-        for import_clause in self._imports:
+        for import_clause in sorted(self._imports):
             code.append(f"import {import_clause}\n")
 
         if self._imports:
             code.append("\n")
 
-        for from_clause, import_clauses in self._from_imports.items():
+        for from_clause, import_clauses in sorted(self._from_imports.items()):
             if len(import_clauses) == 1:
                 code.append(f"from {from_clause} import {list(import_clauses)[0]}\n")
             else:

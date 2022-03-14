@@ -1,12 +1,12 @@
 # LOCK-BEGIN[imports]: DON'T MODIFY
+from codegen.idl.types.action_status import ActionStatus
+from codegen.idl.types.call_back_info import CallBackInfo
 from pod import (
     AutoTagType,
     Enum,
     Variant,
     pod,
 )
-from codegen.idl.types.call_back_info import CallBackInfo
-from codegen.idl.types.action_status import ActionStatus
 
 # LOCK-END
 

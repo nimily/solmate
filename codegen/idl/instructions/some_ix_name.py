@@ -1,21 +1,21 @@
 # LOCK-BEGIN[imports]: DON'T MODIFY
 import codegen.idl
 
+from .instruction_tag import InstructionTag
+from codegen.idl.types import ArrayOfEnumWithFields
+from dataclasses import dataclass
+from io import BytesIO
+from solana.publickey import PublicKey
 from solana.transaction import (
     AccountMeta,
     TransactionInstruction,
 )
-from solana.publickey import PublicKey
-from dataclasses import dataclass
+from solmate.utils import to_account_meta
 from typing import (
     List,
     Optional,
     Union,
 )
-from codegen.idl.types import ArrayOfEnumWithFields
-from io import BytesIO
-from .instruction_tag import InstructionTag
-from solmate.utils import to_account_meta
 
 # LOCK-END
 
