@@ -580,8 +580,9 @@ class CodeGen:
         self._package_editor = self._get_editor(self.root_module, is_file=False)
 
         self._package_editor.add_from_import("solana.publickey", "PublicKey")
+        self._package_editor.add_from_import("solmate", "get_pid_or_default")
         self._package_editor.set_with_lock(
-            "program_id", [f'PROGRAM_ID = PublicKey("{self.program_id}")\n']
+            "program_id", [f'PROGRAM_ID = get_pid_or_default("{self.idl.name}", PublicKey("{self.program_id}")\n']
         )
 
         self._generate_types()

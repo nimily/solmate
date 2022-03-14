@@ -6,6 +6,7 @@ from pod import get_catalog
 from pod.bytes import BytesPodConverter
 from pod.json import JsonPodConverter
 from solana.publickey import PublicKey
+from solmate.pids import get_pids_or_default, set_pid_by_protocol_name
 
 
 def register_solana_types_converters():
