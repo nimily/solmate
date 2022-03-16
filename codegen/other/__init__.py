@@ -8,5 +8,5 @@ from solmate import get_pid_or_default
 
 
 # LOCK-BEGIN[program_id]: DON'T MODIFY
-PROGRAM_ID = get_pid_or_default("other", PublicKey("4vY1e8Vu5NEeTdhD9NMUUq6MwzYmFL4kskzmJoeVRMGr"))
+PROGRAM_ID = get_pid_or_default("other", PublicKey("7YHfGuLpoqbsN3MFCRqo7Cuu4xr9zWrWdq4q3prbMS7e"))
 # LOCK-END

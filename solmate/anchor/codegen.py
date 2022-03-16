@@ -480,6 +480,7 @@ class CodeGen:
 
         for arg_name, arg_type, arg_val in args_with_default:
             code.append(f"    {arg_name}: {arg_type} = {arg_val},\n")
+        code.append(f"    **kwargs,\n")
 
         code.append(f"):\n")
 

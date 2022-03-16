@@ -66,6 +66,7 @@ def some_ix_name(
     params: ArrayOfEnumWithFields,
     remaining_accounts: Optional[List[AccountMeta]] = None,
     program_id: Optional[PublicKey] = None,
+    **kwargs,
 ):
     if program_id is None:
         program_id = codegen.idl.PROGRAM_ID
