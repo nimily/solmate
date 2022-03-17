@@ -56,7 +56,6 @@ class CodeGen:
         addresses,
         root_module,
         source_path,
-        parent_modules=None,
         external_types: Dict[str, Callable[[CodeEditor], str]] = None,
         default_accounts=None,
         instr_tag_values="incremental[U8]",
