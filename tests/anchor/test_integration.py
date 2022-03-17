@@ -1,9 +1,8 @@
 from pathlib import Path
+import tests.anchor.cross_idl_cli as cross_idl_cli
 
 from solana.keypair import Keypair
 
-from solmate.anchor import codegen
-from pod import Static
 
 def get_project_root() -> Path:
     return Path(__file__).parent.parent.parent
@@ -13,7 +12,7 @@ def test():
     keypair = Keypair.generate()
     root = str(get_project_root())
     pids = {"idl": keypair.public_key, "other": keypair.public_key}
-    codegen.cli(f"{root}/tests/anchor", root, pids, "codegen", set())
+    cross_idl_cli.cli(f"{root}/tests/anchor", root, pids, "codegen", set())
 
     from codegen.idl.types import CallBackInfo, EnumWithFields
     from codegen.other.types.cross_idl_reference_type import CrossIdlReferenceType
@@ -24,7 +23,7 @@ def test():
     assert info == round_tripped
 
     enum = EnumWithFields.HEALTH(info)
-    _bytes = EnumWithFields.to_bytes(enum, format="FORMAT_BORSCH")
+    _bytes = EnumWithFields.to_bytes(enum, format="FORMAT_BORSH")
     round_tripped = EnumWithFields.from_bytes(_bytes)
     assert enum == round_tripped
     try:
@@ -41,13 +40,12 @@ def test():
     round_tripped = EnumWithFields.from_bytes(_bytes)
     assert enum == round_tripped
     try:
-        EnumWithFields.from_bytes(_bytes, format="FORMAT_BORSCH", checked=True)
+        EnumWithFields.from_bytes(_bytes, format="FORMAT_BORSH", checked=True)
         excepted = False
     except Exception:
         excepted = True
     finally:
         assert excepted
-
 
     reference_type = CrossIdlReferenceType(keypair.public_key, info)
     _bytes = CrossIdlReferenceType.to_bytes(reference_type)

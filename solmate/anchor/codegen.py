@@ -56,6 +56,7 @@ class CodeGen:
         addresses,
         root_module,
         source_path,
+        parent_modules=None,
         external_types: Dict[str, Callable[[CodeEditor], str]] = None,
         default_accounts=None,
         instr_tag_values="incremental[U8]",
@@ -696,13 +697,14 @@ def defined_types_to_imports(
 
 def cli(
     idl_path: str,
-    addresses: str,
+    addresses: str,  # fixme: usage of addresses needs .items(), so guessing this is a Dict[str, PublicKey]
     source_path: str,
     root_module: str,
     skip_types: Set[str],
     default_accounts: Dict[str, str],
     instr_tag_values: Literal["anchor", "incremental"],
     accnt_tag_values: Literal["anchor", "incremental"],
+    external_types: Dict[str, Callable[[CodeEditor], str]] = None,
 ):
     idl = Idl.from_json_file(idl_path)
     idl.types = list(filter(lambda x: x.name not in skip_types, idl.types))
@@ -711,7 +713,7 @@ def cli(
         "usize": usize_type,
         "UnixTimestamp": unix_timestamp_type,
         "ProgramError": program_error_type,
-    }
+    }.update(external_types if external_types is not None else {})
 
     print(f"Generating code for {idl_path}...")
     codegen = CodeGen(
