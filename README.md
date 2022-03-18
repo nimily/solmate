@@ -3,7 +3,8 @@
 
 Solmate generates convenient and powerful python clients for any Solana program described by an anchor idl.
 
------
+### Philosophy
+
 By embracing code generation, solmate clients are ***just code*** not complex, 
 polymorphic library ***magic***. This philosophy drives great UX and powerful features:
 
