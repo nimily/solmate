@@ -1,10 +1,10 @@
 import os
-from functools import partial
 from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional
 
 from pod import Vec
 from solana.publickey import PublicKey
 
+from solmate.utils import camel_to_snake, pascal_to_snake, snake_to_pascal
 from .editor import CodeEditor
 from .idl import (
     Idl,
@@ -15,10 +15,26 @@ from .idl import (
     IdlAccountItem,
     IdlInstruction,
 )
-from solmate.utils import camel_to_snake, pascal_to_snake, snake_to_pascal
 
 
 class CodeGen:
+    """
+    Codegen is instantiated for each idl file and generates a client based off that idl.
+
+    To customize client generation, subclass Codegen and override one of the generation functions
+
+    :param idl: The parsed idl file
+    :param addresses: Dict from address name to PublicKey for hardcoded associated account addresses
+    :param root_module: Name of the root module. If periods are included (e.g. "outer.mid.inner"), multiple directories
+                         are created
+    :param source_path: Path where the root_module will be output
+    :param external_types: Dict from idl typename to function that manages importing the type and returning
+                            the in-code typename
+    :param default_accounts: Dict from account name to default PublicKey used to populate function
+                              argument defaults for convenience
+    :param instr_tag_values: Determines how large the instruction tag should be. For anchor programs use "anchor" or omit the arg
+    :param accnt_tag_values: Determines how large the account tag should be. For anchor programs use "anchor" or omit the arg
+    """
     idl: Idl
     addresses: Dict[str, str]
     root_module: str
@@ -149,8 +165,11 @@ class CodeGen:
         )
 
     def _get_type_as_string(
-        self, field_type, editor, within_types, explicit_forward_ref=False
+            self, field_type, editor, within_types, explicit_forward_ref=False
     ):
+        """
+        Convert the idl type to the python type as well as add the required imports
+        """
         if field_type.is_a(IdlType.BOOL):
             return "bool"
         elif field_type <= IdlType.I128:
@@ -219,6 +238,9 @@ class CodeGen:
         return self.idl.types + self.idl.accounts
 
     def _generate_types(self):
+        """
+        Method that generates python files for each type defined in the idl
+        """
         type_definitions = self._get_type_definitions()
         if not type_definitions:
             return
@@ -400,6 +422,9 @@ class CodeGen:
         return None
 
     def _generate_instruction(self, module_editor: CodeEditor, instr: IdlInstruction):
+        """
+        Generates python files for constructing and serializing each instruction in the idl
+        """
         instr_name = camel_to_snake(instr.name)
         instr_accounts = self._flatten_accounts(instr.accounts)
 
@@ -668,6 +693,10 @@ class CodeGen:
             editor.save()
 
 
+#########################
+# Common external types #
+#########################
+
 def usize_type(editor: CodeEditor):
     editor.add_from_import("solmate.dtypes", "Usize")
     return "Usize"
@@ -681,17 +710,6 @@ def unix_timestamp_type(editor: CodeEditor):
 def program_error_type(editor: CodeEditor):
     editor.add_from_import("solmate.dtypes", "ProgramError")
     return "ProgramError"
-
-
-def defined_types_to_imports(
-    root_module: str, idl: Idl
-) -> Dict[str, Callable[[CodeEditor], str]]:
-    def add_import(name: str, editor: CodeEditor) -> str:
-        editor.add_from_import(f"{root_module}.types.{pascal_to_snake(name)}", name)
-        return name
-
-    type_definitions = idl.types + idl.accounts
-    return dict(((ty.name, partial(add_import, ty.name)) for ty in type_definitions))
 
 
 def cli(
