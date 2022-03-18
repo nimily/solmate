@@ -62,12 +62,12 @@ If you want to contribute to Solmate, follow these steps to get set up:
 ```sh
 poetry install
 ```
-3. Install [nox-poetry](https://github.com/cjolowicz/nox-poetry) (note: do not use Poetry to install this, see [here](https://medium.com/@cjolowicz/nox-is-a-part-of-your-global-developer-environment-like-poetry-pre-commit-pyenv-or-pipx-1cdeba9198bd))
-4. Activate the poetry shell:
+3. Code your change and add tests
+4. Verify tests
 ```sh
-poetry shell
+poetry run pytest
 ```
-
+5. Open Pr!
 
 [//]: # (Any code outside `LOCK-BEGIN` and `LOCK-END` won’t be overwritten)
 
