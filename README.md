@@ -1,4 +1,5 @@
-## Solmate
+<h1 align="center">Solmate</h1>
+
 
 Solmate generates convenient and powerful python clients for any Solana program described by an anchor idl.
 
