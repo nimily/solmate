@@ -6,6 +6,8 @@ from pod import pod_json, field, named_fields, Vec, Enum, Variant
 from pod.types.enum import ENUM_TAG_NAME, ENUM_TAG_NAME_MAP
 from pod.json import POD_OPTIONS_RENAME
 
+from solmate.utils import camel_to_snake
+
 
 def camel_case(name):
     head, *tail = name.split("_")
@@ -43,6 +45,10 @@ class IdlType(Enum):
 class IdlField:
     name: str
     type: IdlType
+
+    @property
+    def py_name(self):
+        return camel_to_snake(self.name)
 
 
 @pod_json

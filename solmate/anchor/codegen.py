@@ -493,7 +493,7 @@ class CodeGen:
         for arg in instr.args:
             arg_type = self._get_type_as_string(arg.type, editor, within_types=False)
             code.append(
-                f"        buffer.write(BYTES_CATALOG.pack({arg_type}, self.{arg.name}))\n"
+                f"        buffer.write(BYTES_CATALOG.pack({arg_type}, self.{arg.py_name}))\n"
             )
         code.append("\n")
 
@@ -530,7 +530,7 @@ class CodeGen:
 
         for arg in instr.args:
             arg_type = self._get_type_as_string(arg.type, editor, within_types=False)
-            args_without_default.append((arg.name, arg_type))
+            args_without_default.append((arg.py_name, arg_type))
 
         args_with_default.append(
             ("remaining_accounts", "Optional[List[AccountMeta]]", "None")
@@ -571,7 +571,7 @@ class CodeGen:
             code.append(f"        {account_name}={account_name},\n")
         code.append(f"        remaining_accounts=remaining_accounts,\n")
         for arg in instr.args:
-            code.append(f"        {arg.name}={arg.name},\n")
+            code.append(f"        {arg.py_name}={arg.py_name},\n")
         code.append(f"    ).to_instruction()\n")
         code.append(f"\n")
 
@@ -714,7 +714,7 @@ def program_error_type(editor: CodeEditor):
 
 def cli(
     idl_path: str,
-    addresses: str,  # fixme: usage of addresses needs .items(), so guessing this is a Dict[str, PublicKey]
+    addresses: Dict[str, str],
     source_path: str,
     root_module: str,
     skip_types: Set[str],
