@@ -152,7 +152,9 @@ class IdlAccountItem(Enum):
         assert isinstance(raw, dict)
 
         if "accounts" in raw:
-            field_value = Vec[IdlAccountItem].from_dict(raw["accounts"])
+            name = raw["name"]
+            sub_accounts = Vec[IdlAccountItem].from_dict(raw["accounts"])
+            field_value = IdlAccounts(name, sub_accounts)
             return IdlAccountItem.IDL_ACCOUNTS(field_value)
         else:
             field_value = IdlAccount.from_dict(raw)
