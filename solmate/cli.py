@@ -27,7 +27,7 @@ def default_account_gen(name_, value_):
     return _default_account
 
 
-def main():
+def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--idl", type=str, required=True,
                         help="Path to idl file")
@@ -60,6 +60,11 @@ def main():
         required=False,
         help="Type of account tag to use. Use 'anchor' if generating from an anchor idl",
     )
+    return parser
+
+
+def main():
+    parser = get_parser()
     args = parser.parse_args()
 
     skip_types = set(args.skip_types)
