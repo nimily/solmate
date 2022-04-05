@@ -5,7 +5,7 @@ from solana.transaction import (
 )
 from solana.publickey import PublicKey
 from dataclasses import dataclass
-from pod import BYTES_CATALOG
+from podite import BYTES_CATALOG
 from typing import (
     List,
     Optional,
