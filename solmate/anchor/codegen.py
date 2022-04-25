@@ -276,8 +276,8 @@ class CodeGen:
                     if variant.fields is None:
                         variant_type = "None"
                     elif variant.fields.is_a(EnumFields.NAMED):
-                        editor.add_from_import("pod", "Variant")
-                        editor.add_from_import("pod", "named_fields")
+                        editor.add_from_import("podite", "Variant")
+                        editor.add_from_import("podite", "named_fields")
                         editor.add_from_import("typing", "Optional")
 
                         named_fields = []
