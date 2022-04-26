@@ -276,11 +276,25 @@ class CodeGen:
                     if variant.fields is None:
                         variant_type = "None"
                     elif variant.fields.is_a(EnumFields.NAMED):
-                        editor.add_from_import("pod", "Variant")
-                        editor.add_from_import("pod", "named_fields")
-                        # TODO complete me
-                        named_fields = variant.fields.field
-                        raise NotImplementedError()
+                        editor.add_from_import("podite", "Variant")
+                        editor.add_from_import("podite", "named_fields")
+                        editor.add_from_import("podite", "Option")
+
+                        named_fields = []
+                        for field in variant.fields.field:
+                            field_name = field.name
+                            field_type = self._get_type_as_string(
+                                field.type,
+                                editor,
+                                within_types=True,
+                                explicit_forward_ref=True,
+                            )
+                            named_fields.append(f"{field_name}={field_type}")
+
+                        if len(named_fields) == 0:
+                            variant_type = "None"
+                        else:
+                            variant_type = "Variant(field=Option[named_fields(" + ", ".join(named_fields) + ")])"
                     else:
                         editor.add_from_import("podite", "Variant")
 
