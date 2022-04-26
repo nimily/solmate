@@ -278,7 +278,7 @@ class CodeGen:
                     elif variant.fields.is_a(EnumFields.NAMED):
                         editor.add_from_import("podite", "Variant")
                         editor.add_from_import("podite", "named_fields")
-                        editor.add_from_import("typing", "Optional")
+                        editor.add_from_import("podite", "Option")
 
                         named_fields = []
                         for field in variant.fields.field:
@@ -294,7 +294,7 @@ class CodeGen:
                         if len(named_fields) == 0:
                             variant_type = "None"
                         else:
-                            variant_type = "Variant(field=Optional[named_fields(" + ", ".join(named_fields) + ")])"
+                            variant_type = "Variant(field=Option[named_fields(" + ", ".join(named_fields) + ")])"
                     else:
                         editor.add_from_import("podite", "Variant")
 
