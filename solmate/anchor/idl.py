@@ -2,9 +2,9 @@ import json
 from itertools import chain
 from typing import Optional, Tuple  # pylint: disable=unused-import
 
-from pod import pod_json, field, named_fields, Vec, Enum, Variant
-from pod.types.enum import ENUM_TAG_NAME, ENUM_TAG_NAME_MAP
-from pod.json import POD_OPTIONS_RENAME
+from podite import pod_json, field, named_fields, Vec, Enum, Variant
+from podite.types.enum import ENUM_TAG_NAME, ENUM_TAG_NAME_MAP
+from podite.json import POD_OPTIONS_RENAME
 
 from solmate.utils import camel_to_snake
 

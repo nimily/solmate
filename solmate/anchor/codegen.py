@@ -1,7 +1,7 @@
 import os
 from typing import Dict, Iterable, Set, Union, Callable, Literal, Optional
 
-from pod import Vec
+from podite import Vec
 from solana.publickey import PublicKey
 
 from solmate.utils import camel_to_snake, pascal_to_snake, snake_to_pascal
@@ -173,7 +173,7 @@ class CodeGen:
         if field_type.is_a(IdlType.BOOL):
             return "bool"
         elif field_type <= IdlType.I128:
-            editor.add_from_import("pod", field_type.get_name())
+            editor.add_from_import("podite", field_type.get_name())
             return field_type.get_name()
         elif field_type.is_a(IdlType.BYTES):
             return "bytes"
@@ -217,7 +217,7 @@ class CodeGen:
                 else:
                     type_name = "Vec"
 
-                editor.add_from_import(f"pod", type_name)
+                editor.add_from_import(f"podite", type_name)
 
             field_type_str = self._get_type_as_string(
                 field_type.field, editor, within_types=within_types
@@ -225,7 +225,7 @@ class CodeGen:
             return f"{type_name}[{field_type_str}]"
 
         elif field_type.is_a(IdlType.ARRAY):
-            editor.add_from_import("pod", "FixedLenArray")
+            editor.add_from_import("podite", "FixedLenArray")
             elem_type, n_elem = field_type.field
             elem_type_str = self._get_type_as_string(
                 elem_type, editor, within_types=within_types
@@ -250,7 +250,7 @@ class CodeGen:
             editor = self._get_editor(
                 f"{self.root_module}.types.{camel_to_snake(type_def.name)}"
             )
-            editor.add_from_import("pod", "pod")
+            editor.add_from_import("podite", "pod")
 
             class_code = ["@pod\n"]
             if type_def.type.is_a(IdlTypeDefinitionTy.STRUCT):
@@ -268,21 +268,35 @@ class CodeGen:
                     class_code += ["    pass\n"]
 
             else:
-                editor.add_from_import("pod", "Enum")
-                editor.add_from_import("pod", "AutoTagType")
+                editor.add_from_import("podite", "Enum")
+                editor.add_from_import("podite", "AutoTagType")
                 class_code += [f"class {type_def.name}(Enum[AutoTagType]):\n"]
                 variants = type_def.type.field.variants
                 for variant in variants:
                     if variant.fields is None:
                         variant_type = "None"
                     elif variant.fields.is_a(EnumFields.NAMED):
-                        editor.add_from_import("pod", "Variant")
-                        editor.add_from_import("pod", "named_fields")
-                        # TODO complete me
-                        named_fields = variant.fields.field
-                        raise NotImplementedError()
+                        editor.add_from_import("podite", "Variant")
+                        editor.add_from_import("podite", "named_fields")
+                        editor.add_from_import("podite", "Option")
+
+                        named_fields = []
+                        for field in variant.fields.field:
+                            field_name = field.name
+                            field_type = self._get_type_as_string(
+                                field.type,
+                                editor,
+                                within_types=True,
+                                explicit_forward_ref=True,
+                            )
+                            named_fields.append(f"{field_name}={field_type}")
+
+                        if len(named_fields) == 0:
+                            variant_type = "None"
+                        else:
+                            variant_type = "Variant(field=Option[named_fields(" + ", ".join(named_fields) + ")])"
                     else:
-                        editor.add_from_import("pod", "Variant")
+                        editor.add_from_import("podite", "Variant")
 
                         tuple_fields = []
                         for field_type in variant.fields.field:
@@ -360,22 +374,22 @@ class CodeGen:
         editor = self._get_editor(f"{self.root_module}.accounts")
         code = []
 
-        editor.add_from_import("pod", "pod")
-        editor.add_from_import("pod", "Enum")
+        editor.add_from_import("podite", "pod")
+        editor.add_from_import("podite", "Enum")
 
         base = None
         variant_type = None
 
         if self.accnt_tag_values == "anchor":
-            editor.add_from_import("pod", "U64")
+            editor.add_from_import("podite", "U64")
             editor.add_from_import("solmate.anchor", "AccountDiscriminant")
             base = "Enum[U64]"
             variant_type = "AccountDiscriminant"
 
         elif self.accnt_tag_values is not None:
             tag_type = self.instr_tag_values.split(":")[1]
-            editor.add_from_import("pod", "Variant")
-            editor.add_from_import("pod", tag_type)
+            editor.add_from_import("podite", "Variant")
+            editor.add_from_import("podite", tag_type)
             base = f"Enum[{tag_type}]"
             variant_type = "Variant"
 
@@ -432,7 +446,7 @@ class CodeGen:
         editor.add_from_import("solana.transaction", "AccountMeta")
         editor.add_from_import("solana.publickey", "PublicKey")
         editor.add_from_import("dataclasses", "dataclass")
-        editor.add_from_import("pod", "BYTES_CATALOG")
+        editor.add_from_import("podite", "BYTES_CATALOG")
         editor.add_from_import("typing", "Optional")
         editor.add_from_import("typing", "List")
 
@@ -592,7 +606,7 @@ class CodeGen:
         instr_tag_editor = self._get_editor(
             f"{self.root_module}.instructions.instruction_tag"
         )
-        instr_tag_editor.add_from_import("pod", "Enum")
+        instr_tag_editor.add_from_import("podite", "Enum")
         if self.instr_tag_values == "anchor":
             tag_type = "U64"
             variant_type = "InstructionDiscriminant"
@@ -604,8 +618,8 @@ class CodeGen:
             variant_type = "Variant"
             instr_tag_editor.add_from_import("pod", "Variant")
 
-        instr_tag_editor.add_from_import("pod", "pod")
-        instr_tag_editor.add_from_import("pod", tag_type)
+        instr_tag_editor.add_from_import("podite", "pod")
+        instr_tag_editor.add_from_import("podite", tag_type)
         instr_tag_code = [
             "@pod\n",
             f"class InstructionTag(Enum[{tag_type}]):\n",
@@ -640,10 +654,10 @@ class CodeGen:
             )
 
         editor = self._get_editor(f"{self.root_module}.errors")
-        editor.add_from_import("pod", "pod")
-        editor.add_from_import("pod", "Enum")
-        editor.add_from_import("pod", "Variant")
-        editor.add_from_import("pod", "U64")
+        editor.add_from_import("podite", "pod")
+        editor.add_from_import("podite", "Enum")
+        editor.add_from_import("podite", "Variant")
+        editor.add_from_import("podite", "U64")
         if editor.set_with_lock("errors", code):
             editor.add_lines(
                 "\n",

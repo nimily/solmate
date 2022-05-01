@@ -1,6 +1,6 @@
 from hashlib import sha256
 
-from pod import U64
+from podite import U64
 
 
 def sighash(namespace: str, name: str) -> int:

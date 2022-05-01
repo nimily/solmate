@@ -2,9 +2,9 @@ __version__ = "0.1.0"
 
 from typing import Any
 
-from pod import get_catalog
-from pod.bytes import BytesPodConverter
-from pod.json import JsonPodConverter
+from podite import get_catalog
+from podite.bytes import BytesPodConverter
+from podite.json import JsonPodConverter
 from solana.publickey import PublicKey
 
 

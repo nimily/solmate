@@ -1,5 +1,5 @@
 # LOCK-BEGIN[imports]: DON'T MODIFY
-from pod import (
+from podite import (
     U32,
     pod,
 )
