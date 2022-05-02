@@ -8,7 +8,7 @@ authors = ["Nima Hamidi <hamidi@alumni.stanford.edu>"]
 python = "^3.9"
 solana = "^0.19.0"
 argparse = "^1.4.0"
-podite = {git = "git@github.com:nimily/podite.git", rev = "main"}
+podite = "^0.1.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "6.2.5"
