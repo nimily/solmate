@@ -20,8 +20,14 @@ from .idl import (
 class InstructionCodeGen:
     codegen: "CodeGen"
 
-    def __init__(self, codegen: "CodeGen"):
+    def __init__(self, codegen: "CodeGen", module_editor, instr):
         self.codegen = codegen
+        self.module_editor = module_editor
+        self.instr = instr
+
+    @property
+    def instr_name(self):
+        return camel_to_snake(self.instr.name)
 
     @staticmethod
     def _flatten_accounts(accounts: Vec[IdlAccountItem], name_prefix=""):
@@ -35,15 +41,14 @@ class InstructionCodeGen:
 
         return flat
 
-    def generate_instruction(self, module_editor: CodeEditor, instr: IdlInstruction):
-        """
-        Generates python files for constructing and serializing each instruction in the idl
-        """
+    def generate_ix_cls(self, editor: CodeEditor, code: list[str]):
         codegen = self.codegen
-        instr_name = camel_to_snake(instr.name)
+        module_editor = self.module_editor
+
+        instr = self.instr
+        instr_name = self.instr_name
         instr_accounts = self._flatten_accounts(instr.accounts)
 
-        editor = codegen.get_editor(f"{codegen.root_module}.instructions.{instr_name}")
         editor.add_from_import("solana.transaction", "AccountMeta")
         editor.add_from_import("solana.publickey", "PublicKey")
         editor.add_from_import("dataclasses", "dataclass")
@@ -56,7 +61,7 @@ class InstructionCodeGen:
             f".{instr_name}", f"{snake_to_pascal(instr_name)}Ix"
         )
         module_editor.add_from_import(f".{instr_name}", f"{instr_name}")
-        code = [
+        code += [
             "@dataclass\n" f"class {snake_to_pascal(instr_name)}Ix:\n",
             "    program_id: PublicKey\n",
             "\n",
@@ -121,6 +126,13 @@ class InstructionCodeGen:
         code.append("\n")
         if editor.set_with_lock(f"ix_cls({instr_name})", code):
             editor.add_lines("\n", "\n")
+
+    def generate_ix_func(self, editor: CodeEditor, code: list[str]):
+        codegen = self.codegen
+
+        instr = self.instr
+        instr_name = self.instr_name
+        instr_accounts = self._flatten_accounts(instr.accounts)
 
         # generating helper function's code
         code = [f"def {instr_name}(\n"]
@@ -190,52 +202,19 @@ class InstructionCodeGen:
         code.append(f"    ).to_instruction()\n")
         code.append(f"\n")
 
-        # writing instruction class
-        editor.set_with_lock(f"ix_fn({instr_name})", code)
-
     def generate(self):
-        codegen = self.codegen
-        if not codegen.idl.instructions:
-            return
+        """
+        Generates python files for constructing and serializing each instruction in the idl
+        """
 
-        module_editor = codegen.get_editor(
-            f"{codegen.root_module}.instructions", is_file=False
-        )
-        for instr in codegen.idl.instructions:
-            self.generate_instruction(module_editor, instr)
+        code = []
+        editor = self.codegen.get_editor(f"{self.codegen.root_module}.instructions.{self.instr_name}")
 
-        # generating InstructionTag class
-        instr_tag_editor = codegen.get_editor(
-            f"{codegen.root_module}.instructions.instruction_tag"
-        )
-        instr_tag_editor.add_from_import("podite", "Enum")
-        if codegen.instr_tag_values == "anchor":
-            tag_type = "U64"
-            variant_type = "InstructionDiscriminant"
-            instr_tag_editor.add_from_import(
-                "solmate.anchor", "InstructionDiscriminant"
-            )
-        else:
-            tag_type = codegen.instr_tag_values.split(":")[1]
-            variant_type = "Variant"
-            instr_tag_editor.add_from_import("pod", "Variant")
+        self.generate_ix_cls(editor, code)
+        self.generate_ix_func(editor, code)
 
-        instr_tag_editor.add_from_import("podite", "pod")
-        instr_tag_editor.add_from_import("podite", tag_type)
-        instr_tag_code = [
-            "@pod\n",
-            f"class InstructionTag(Enum[{tag_type}]):\n",
-        ]
-        for instr in codegen.idl.instructions:
-            instr_tag_name = camel_to_snake(instr.name).upper()
-            instr_tag_code.append(f"    {instr_tag_name} = {variant_type}()\n")
-
-        instr_tag_editor.set_with_lock(f"instruction_tag", instr_tag_code)
-        module_editor.add_from_import(".instruction_tag", "InstructionTag")
-
-        codegen.package_editor.add_import(
-            f"{codegen.root_module}.instructions", "instructions"
-        )
+        # writing instruction class
+        editor.set_with_lock(f"ix_fn({self.instr_name})", code)
 
 
 class CodeGen:
@@ -280,12 +259,12 @@ class CodeGen:
             "incremental:U128",
         ]
     ]
-    package_editor: CodeEditor
 
     _editors: Dict[str, CodeEditor]
     _all_defined_types: Set[str]  # all type names for this module
     _defined_types: Set[str]  # all type names for which code is generated
     _expected_types: Set[str]  # all type names used somewhere in this module
+    _package_editor: CodeEditor
 
     def __init__(
         self,
@@ -556,7 +535,7 @@ class CodeGen:
             )
 
             self._defined_types.add(type_def.name)
-            self.package_editor.add_import(f"{self.root_module}.types", "types")
+            self._package_editor.add_import(f"{self.root_module}.types", "types")
 
     def generate_addresses(self):
         editor = self.get_editor(f"{self.root_module}.addrs")
@@ -568,7 +547,7 @@ class CodeGen:
             code.append(f'{name} = PublicKey("{addr}")\n')
         editor.set_with_lock("addresses", code)
 
-        program_id = self.get_account_address(self.package_editor, "program_id")
+        program_id = self.get_account_address(self._package_editor, "program_id")
         if program_id is None:
             raise RuntimeError("Default accounts must contain program_id.")
 
@@ -586,7 +565,7 @@ class CodeGen:
             code.append(f"{const.name}: {const_type} = {const.value}\n")
 
         editor.set_with_lock("constants", code)
-        self.package_editor.add_import(f"{self.root_module}.constants", "constants")
+        self._package_editor.add_import(f"{self.root_module}.constants", "constants")
 
     def generate_accounts(self):
         if not self.idl.accounts or self.accnt_tag_values is None:
@@ -633,7 +612,7 @@ class CodeGen:
         if editor.set_with_lock("accounts", code):
             self._add_packing_methods(editor, is_struct=True)
 
-        self.package_editor.add_import(f"{self.root_module}.accounts", "accounts")
+        self._package_editor.add_import(f"{self.root_module}.accounts", "accounts")
 
     def get_account_address(self, editor, account_name):
         default_account = self.default_accounts.get(account_name, None)
@@ -645,8 +624,51 @@ class CodeGen:
             return expr
         return None
 
+    def generate_instruction(self, module_editor, instr):
+        return InstructionCodeGen(self, module_editor, instr).generate()
+
     def generate_instructions(self):
-        return InstructionCodeGen(self).generate()  # here
+        if not self.idl.instructions:
+            return
+
+        module_editor = self.get_editor(
+            f"{self.root_module}.instructions", is_file=False
+        )
+        for instr in self.idl.instructions:
+            self.generate_instruction(module_editor, instr)
+
+        # generating InstructionTag class
+        instr_tag_editor = self.get_editor(
+            f"{self.root_module}.instructions.instruction_tag"
+        )
+        instr_tag_editor.add_from_import("podite", "Enum")
+        if self.instr_tag_values == "anchor":
+            tag_type = "U64"
+            variant_type = "InstructionDiscriminant"
+            instr_tag_editor.add_from_import(
+                "solmate.anchor", "InstructionDiscriminant"
+            )
+        else:
+            tag_type = self.instr_tag_values.split(":")[1]
+            variant_type = "Variant"
+            instr_tag_editor.add_from_import("pod", "Variant")
+
+        instr_tag_editor.add_from_import("podite", "pod")
+        instr_tag_editor.add_from_import("podite", tag_type)
+        instr_tag_code = [
+            "@pod\n",
+            f"class InstructionTag(Enum[{tag_type}]):\n",
+        ]
+        for instr in self.idl.instructions:
+            instr_tag_name = camel_to_snake(instr.name).upper()
+            instr_tag_code.append(f"    {instr_tag_name} = {variant_type}()\n")
+
+        instr_tag_editor.set_with_lock(f"instruction_tag", instr_tag_code)
+        module_editor.add_from_import(".instruction_tag", "InstructionTag")
+
+        self._package_editor.add_import(
+            f"{self.root_module}.instructions", "instructions"
+        )
 
     def generate_events(self):
         if not self.idl.events:
@@ -683,7 +705,7 @@ class CodeGen:
                 '        return cls.unpack(raw, converter="bytes", **kwargs)\n',
             )
 
-        self.package_editor.add_from_import(f"{self.root_module}.errors", "Error")
+        self._package_editor.add_from_import(f"{self.root_module}.errors", "Error")
 
     def generate_state(self):
         if not self.idl.state:
@@ -693,7 +715,7 @@ class CodeGen:
         print("Skipping state...")
 
     def generate_code(self, check_missing_types=False):
-        self.package_editor = self.get_editor(self.root_module, is_file=False)
+        self._package_editor = self.get_editor(self.root_module, is_file=False)
 
         self.generate_addresses()
         self.generate_types()
