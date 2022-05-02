@@ -29,15 +29,27 @@ def default_account_gen(name_, value_):
 
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--idl", type=str, required=True,
-                        help="Path to idl file")
-    parser.add_argument("--addrs", nargs="+", type=str, required=True, default=[])  # TODO: @nimily how does this work? Can you correct the types and add a help message
-    parser.add_argument("--root-dir", type=str, required=True, default=os.getcwd(),
-                        help="Path to output")
-    parser.add_argument("--module", type=str, required=True,
-                        help="Name of the python module")
-    parser.add_argument("--skip-types", nargs="+", required=False, default=[],
-                        help="Idl types to skip emitting code for")
+    parser.add_argument("--idl", type=str, required=True, help="Path to idl file")
+    parser.add_argument(
+        "--addrs", nargs="+", type=str, required=True, default=[]
+    )  # TODO: @nimily how does this work? Can you correct the types and add a help message
+    parser.add_argument(
+        "--root-dir",
+        type=str,
+        required=True,
+        default=os.getcwd(),
+        help="Path to output",
+    )
+    parser.add_argument(
+        "--module", type=str, required=True, help="Name of the python module"
+    )
+    parser.add_argument(
+        "--skip-types",
+        nargs="+",
+        required=False,
+        default=[],
+        help="Idl types to skip emitting code for",
+    )
     parser.add_argument(
         "--default-accounts",
         nargs="+",
@@ -45,7 +57,8 @@ def get_parser():
         required=False,
         default=[],
         help="Dictionary of account name to public key which are used to enable default arguments. "
-             "Must include program_id")
+        "Must include program_id",
+    )
     parser.add_argument(
         "--instruction-tag",
         choices=TAG_TYPES,

@@ -37,7 +37,9 @@ class InstructionCodeGen:
                 flat.append((account, name_prefix))
             else:
                 prefix = f"{name_prefix}{account.field.name}_"
-                flat += InstructionCodeGen._flatten_accounts(account.field.accounts, prefix)
+                flat += InstructionCodeGen._flatten_accounts(
+                    account.field.accounts, prefix
+                )
 
         return flat
 
@@ -208,7 +210,9 @@ class InstructionCodeGen:
         """
 
         code = []
-        editor = self.codegen.get_editor(f"{self.codegen.root_module}.instructions.{self.instr_name}")
+        editor = self.codegen.get_editor(
+            f"{self.codegen.root_module}.instructions.{self.instr_name}"
+        )
 
         self.generate_ix_cls(editor, code)
         self.generate_ix_func(editor, code)
@@ -235,6 +239,7 @@ class CodeGen:
     :param instr_tag_values: Determines how large the instruction tag should be. For anchor programs use "anchor" or omit the arg
     :param accnt_tag_values: Determines how large the account tag should be. For anchor programs use "anchor" or omit the arg
     """
+
     idl: Idl
     addresses: Dict[str, str]
     root_module: str
@@ -365,7 +370,7 @@ class CodeGen:
         )
 
     def get_type_as_string(
-            self, field_type, editor, within_types, explicit_forward_ref=False
+        self, field_type, editor, within_types, explicit_forward_ref=False
     ):
         """
         Convert the idl type to the python type as well as add the required imports
@@ -494,7 +499,11 @@ class CodeGen:
                         if len(named_fields) == 0:
                             variant_type = "None"
                         else:
-                            variant_type = "Variant(field=Option[named_fields(" + ", ".join(named_fields) + ")])"
+                            variant_type = (
+                                "Variant(field=Option[named_fields("
+                                + ", ".join(named_fields)
+                                + ")])"
+                            )
                     else:
                         editor.add_from_import("podite", "Variant")
 
@@ -559,9 +568,7 @@ class CodeGen:
         code = []
 
         for const in self.idl.constants:
-            const_type = self.get_type_as_string(
-                const.type, editor, within_types=False
-            )
+            const_type = self.get_type_as_string(const.type, editor, within_types=False)
             code.append(f"{const.name}: {const_type} = {const.value}\n")
 
         editor.set_with_lock("constants", code)
@@ -745,6 +752,7 @@ class CodeGen:
 #########################
 # Common external types #
 #########################
+
 
 def usize_type(editor: CodeEditor):
     editor.add_from_import("solmate.dtypes", "Usize")
