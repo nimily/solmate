@@ -43,7 +43,7 @@ class InstructionCodeGen:
 
         return flat
 
-    def generate_ix_cls(self, editor: CodeEditor, code: list[str]):
+    def generate_ix_cls(self, editor: CodeEditor):
         codegen = self.codegen
         module_editor = self.module_editor
 
@@ -54,7 +54,6 @@ class InstructionCodeGen:
         editor.add_from_import("solana.transaction", "AccountMeta")
         editor.add_from_import("solana.publickey", "PublicKey")
         editor.add_from_import("dataclasses", "dataclass")
-        editor.add_from_import("podite", "BYTES_CATALOG")
         editor.add_from_import("typing", "Optional")
         editor.add_from_import("typing", "List")
 
@@ -63,7 +62,7 @@ class InstructionCodeGen:
             f".{instr_name}", f"{snake_to_pascal(instr_name)}Ix"
         )
         module_editor.add_from_import(f".{instr_name}", f"{instr_name}")
-        code += [
+        code = [
             "@dataclass\n" f"class {snake_to_pascal(instr_name)}Ix:\n",
             "    program_id: PublicKey\n",
             "\n",
@@ -114,6 +113,8 @@ class InstructionCodeGen:
         )
         for arg in instr.args:
             arg_type = codegen.get_type_as_string(arg.type, editor, within_types=False)
+
+            editor.add_from_import("podite", "BYTES_CATALOG")
             code.append(
                 f"        buffer.write(BYTES_CATALOG.pack({arg_type}, self.{arg.py_name}))\n"
             )
@@ -129,7 +130,7 @@ class InstructionCodeGen:
         if editor.set_with_lock(f"ix_cls({instr_name})", code):
             editor.add_lines("\n", "\n")
 
-    def generate_ix_func(self, editor: CodeEditor, code: list[str]):
+    def generate_ix_func(self, editor: CodeEditor):
         codegen = self.codegen
 
         instr = self.instr
@@ -204,21 +205,20 @@ class InstructionCodeGen:
         code.append(f"    ).to_instruction()\n")
         code.append(f"\n")
 
+        # writing instruction class
+        editor.set_with_lock(f"ix_fn({self.instr_name})", code)
+
     def generate(self):
         """
         Generates python files for constructing and serializing each instruction in the idl
         """
 
-        code = []
         editor = self.codegen.get_editor(
             f"{self.codegen.root_module}.instructions.{self.instr_name}"
         )
 
-        self.generate_ix_cls(editor, code)
-        self.generate_ix_func(editor, code)
-
-        # writing instruction class
-        editor.set_with_lock(f"ix_fn({self.instr_name})", code)
+        self.generate_ix_cls(editor)
+        self.generate_ix_func(editor)
 
 
 class CodeGen:
