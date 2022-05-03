@@ -76,7 +76,7 @@ def get_parser():
     return parser
 
 
-def main():
+def main(process_cmd):
     parser = get_parser()
     args = parser.parse_args()
 
@@ -103,7 +103,7 @@ def main():
     if account_tag == "incremental":
         account_tag = "incremental:U8"
 
-    codegen.cli(
+    process_cmd(
         args.idl,
         addresses,
         args.root_dir,
@@ -116,4 +116,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(codegen.cli)
