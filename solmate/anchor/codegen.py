@@ -658,7 +658,7 @@ class CodeGen:
         else:
             tag_type = self.instr_tag_values.split(":")[1]
             variant_type = "Variant"
-            instr_tag_editor.add_from_import("pod", "Variant")
+            instr_tag_editor.add_from_import("podite", "Variant")
 
         instr_tag_editor.add_from_import("podite", "pod")
         instr_tag_editor.add_from_import("podite", tag_type)
