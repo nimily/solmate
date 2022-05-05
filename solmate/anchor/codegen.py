@@ -19,11 +19,16 @@ from .idl import (
 
 class InstructionCodeGen:
     codegen: "CodeGen"
+    editor: "CodeEditor"
+    module_editor: "CodeEditor"
+    instr: IdlInstruction
+    instr_account: list[tuple[IdlAccountItem, str]]
 
-    def __init__(self, codegen: "CodeGen", module_editor, instr):
+    def __init__(self, codegen: "CodeGen", module_editor:CodeEditor, instr: IdlInstruction):
         self.codegen = codegen
         self.module_editor = module_editor
         self.instr = instr
+        self.instr_accounts = self._flatten_accounts(instr.accounts)
 
     @property
     def instr_name(self):
@@ -43,13 +48,13 @@ class InstructionCodeGen:
 
         return flat
 
-    def generate_ix_cls(self, editor: CodeEditor):
+    def generate_ix_cls(self):
         codegen = self.codegen
+        editor = self.editor
         module_editor = self.module_editor
 
         instr = self.instr
         instr_name = self.instr_name
-        instr_accounts = self._flatten_accounts(instr.accounts)
 
         editor.add_from_import("solana.transaction", "AccountMeta")
         editor.add_from_import("solana.publickey", "PublicKey")
@@ -68,7 +73,7 @@ class InstructionCodeGen:
             "\n",
             "    # account metas\n",
         ]
-        for account, prefix in instr_accounts:
+        for account, prefix in self.instr_accounts:
             account_name = camel_to_snake(prefix + account.field.name)
             account_type = (
                 "Optional[AccountMeta]" if account.field.is_optional else "AccountMeta"
@@ -91,7 +96,7 @@ class InstructionCodeGen:
         code.append("\n")
         code.append("    def to_instruction(self):\n")
         code.append("        keys = []\n")
-        for account, prefix in instr_accounts:
+        for account, prefix in self.instr_accounts:
             account_name = camel_to_snake(prefix + account.field.name)
             if account.field.is_optional:
                 code.append(f"        if self.{account_name} is not None:\n")
@@ -127,25 +132,26 @@ class InstructionCodeGen:
         code.append("            data=buffer.getvalue(),\n")
         code.append("        )\n")
         code.append("\n")
-        if editor.set_with_lock(f"ix_cls({instr_name})", code):
-            editor.add_lines("\n", "\n")
+        return code
 
-    def generate_ix_func(self, editor: CodeEditor):
-        codegen = self.codegen
-
-        instr = self.instr
-        instr_name = self.instr_name
-        instr_accounts = self._flatten_accounts(instr.accounts)
-
+    def generate_ix_func_declaration(self):
         # generating helper function's code
-        code = [f"def {instr_name}(\n"]
+        code = [f"def {self.instr_name}(\n"]
+        code += self.generate_ix_func_args()
+        code += ["):\n"]
+        return code
 
-        # arguments
+    def generate_ix_func_args(self):
+        code = []
+        editor = self.editor
+        codegen = self.codegen
+        instr = self.instr
+
         args_without_default = []
         args_with_default = []
         editor.add_from_import("typing", "Union")
         meta_type = "Union[str, PublicKey, AccountMeta]"
-        for account, prefix in instr_accounts:
+        for account, prefix in self.instr_accounts:
             account_name = camel_to_snake(prefix + account.field.name)
             account_type = (
                 f"Optional[{meta_type}]" if account.field.is_optional else meta_type
@@ -165,7 +171,8 @@ class InstructionCodeGen:
         args_with_default.append(
             ("remaining_accounts", "Optional[List[AccountMeta]]", "None")
         )
-        args_with_default.append(("program_id", "Optional[PublicKey]", "None"))
+        program_id_code = codegen.get_account_address(editor, "program_id")
+        args_with_default.append(("program_id", "PublicKey", program_id_code))
 
         for arg_name, arg_type in args_without_default:
             code.append(f"    {arg_name}: {arg_type},\n")
@@ -173,29 +180,39 @@ class InstructionCodeGen:
         for arg_name, arg_type, arg_val in args_with_default:
             code.append(f"    {arg_name}: {arg_type} = {arg_val},\n")
 
-        code.append(f"):\n")
+        return code
 
-        # helper's body
-        code.append("    if program_id is None:\n")
-        code.append(
-            f"        program_id = {codegen.get_account_address(editor, 'program_id')}\n"
-        )
+    def generate_ix_func_key_preprocessor(self, account, prefix):
+        self.editor.add_from_import("solmate.utils", "to_account_meta")
+
+        code = []
+        account_name = camel_to_snake(prefix + account.field.name)
+        code.append(f"    if isinstance({account_name}, (str, PublicKey)):\n")
+        code.append(f"        {account_name} = to_account_meta(\n")
+        code.append(f"            {account_name},\n")
+        code.append(f"            is_signer={account.field.is_signer},\n")
+        code.append(f"            is_writable={account.field.is_mut},\n")
+        code.append(f"        )\n")
+
+        return code
+
+    def generate_ix_func_keys_compiler(self):
+        code = []
+        for account, prefix in self.instr_accounts:
+            code += self.generate_ix_func_key_preprocessor(account, prefix)
         code.append("\n")
+        return code
 
-        editor.add_from_import("solmate.utils", "to_account_meta")
-        for account, prefix in instr_accounts:
-            account_name = camel_to_snake(prefix + account.field.name)
-            code.append(f"    if isinstance({account_name}, (str, PublicKey)):\n")
-            code.append(f"        {account_name} = to_account_meta(\n")
-            code.append(f"            {account_name},\n")
-            code.append(f"            is_signer={account.field.is_signer},\n")
-            code.append(f"            is_writable={account.field.is_mut},\n")
-            code.append(f"        )\n")
-        code.append("\n")
-
+    def generate_ix_func_return_obj(self):
         # creating the instruction and returning it as a regular instruction
-        code.append(f"    return {snake_to_pascal(instr_name)}Ix(\n")
-        code.append(f"        program_id=program_id,\n")
+        instr = self.instr
+        instr_name = self.instr_name
+        instr_accounts = self.instr_accounts
+
+        code = [
+            f"    return {snake_to_pascal(instr_name)}Ix(\n",
+            f"        program_id=program_id,\n",
+        ]
         for account, prefix in instr_accounts:
             account_name = camel_to_snake(prefix + account.field.name)
             code.append(f"        {account_name}={account_name},\n")
@@ -204,21 +221,29 @@ class InstructionCodeGen:
             code.append(f"        {arg.py_name}={arg.py_name},\n")
         code.append(f"    ).to_instruction()\n")
         code.append(f"\n")
+        return code
 
-        # writing instruction class
-        editor.set_with_lock(f"ix_fn({self.instr_name})", code)
+    def generate_ix_func(self):
+        code = self.generate_ix_func_declaration()
+        code += self.generate_ix_func_keys_compiler()
+        code += self.generate_ix_func_return_obj()
+
+        return code
 
     def generate(self):
         """
         Generates python files for constructing and serializing each instruction in the idl
         """
-
-        editor = self.codegen.get_editor(
+        self.editor = self.codegen.get_editor(
             f"{self.codegen.root_module}.instructions.{self.instr_name}"
         )
 
-        self.generate_ix_cls(editor)
-        self.generate_ix_func(editor)
+        ix_cls = self.generate_ix_cls()
+        if self.editor.set_with_lock(f"ix_cls({self.instr_name})", ix_cls):
+            self.editor.add_lines("\n", "\n")
+
+        ix_func = self.generate_ix_func()
+        self.editor.set_with_lock(f"ix_fn({self.instr_name})", ix_func)
 
 
 class CodeGen:
