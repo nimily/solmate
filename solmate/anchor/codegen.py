@@ -24,7 +24,9 @@ class InstructionCodeGen:
     instr: IdlInstruction
     instr_account: list[tuple[IdlAccountItem, str]]
 
-    def __init__(self, codegen: "CodeGen", module_editor:CodeEditor, instr: IdlInstruction):
+    def __init__(
+        self, codegen: "CodeGen", module_editor: CodeEditor, instr: IdlInstruction
+    ):
         self.codegen = codegen
         self.module_editor = module_editor
         self.instr = instr
@@ -153,10 +155,13 @@ class InstructionCodeGen:
         meta_type = "Union[str, PublicKey, AccountMeta]"
         for account, prefix in self.instr_accounts:
             account_name = camel_to_snake(prefix + account.field.name)
-            account_type = (
-                f"Optional[{meta_type}]" if account.field.is_optional else meta_type
-            )
             default_account = codegen.get_account_address(editor, account_name)
+
+            if account.field.is_optional or default_account == "None":
+                account_type = f"Optional[{meta_type}]"
+            else:
+                account_type = meta_type
+
             if default_account is not None:
                 args_with_default.append((account_name, account_type, default_account))
             elif account.field.is_optional:
@@ -650,7 +655,10 @@ class CodeGen:
         default_account = self.default_accounts.get(account_name, None)
         if default_account is not None:
             if isinstance(default_account, (str, PublicKey)):
-                expr = f'PublicKey("{default_account}")'
+                if default_account == "None":
+                    expr = "None"
+                else:
+                    expr = f'PublicKey("{default_account}")'
             else:
                 expr = default_account(editor)
             return expr
