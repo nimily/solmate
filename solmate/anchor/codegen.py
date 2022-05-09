@@ -50,6 +50,19 @@ class InstructionCodeGen:
 
         return flat
 
+    def get_default_account(self, editor, account_name):
+        default_account = self.codegen.default_accounts.get(account_name, None)
+        if default_account is not None:
+            if isinstance(default_account, (str, PublicKey)):
+                if default_account == "None":
+                    expr = "None"
+                else:
+                    expr = f'PublicKey("{default_account}")'
+            else:
+                expr = default_account(editor)
+            return expr
+        return None
+
     def generate_ix_cls(self):
         codegen = self.codegen
         editor = self.editor
@@ -155,7 +168,7 @@ class InstructionCodeGen:
         meta_type = "Union[str, PublicKey, AccountMeta]"
         for account, prefix in self.instr_accounts:
             account_name = camel_to_snake(prefix + account.field.name)
-            default_account = codegen.get_account_address(editor, account_name)
+            default_account = self.get_default_account(editor, account_name)
 
             if account.field.is_optional or default_account == "None":
                 account_type = f"Optional[{meta_type}]"
@@ -176,8 +189,11 @@ class InstructionCodeGen:
         args_with_default.append(
             ("remaining_accounts", "Optional[List[AccountMeta]]", "None")
         )
-        program_id_code = codegen.get_account_address(editor, "program_id")
-        args_with_default.append(("program_id", "PublicKey", program_id_code))
+        program_id = self.get_default_account(editor, "program_id")
+        if program_id is None:
+            args_without_default.append(("program_id", "PublicKey"))
+        else:
+            args_with_default.append(("program_id", "PublicKey", program_id))
 
         for arg_name, arg_type in args_without_default:
             code.append(f"    {arg_name}: {arg_type},\n")
@@ -584,11 +600,8 @@ class CodeGen:
         code = []
         for name, addr in self.addresses.items():
             code.append(f'{name} = PublicKey("{addr}")\n')
+            self._package_editor.add_from_import(f"{self.root_module}.addrs", name)
         editor.set_with_lock("addresses", code)
-
-        program_id = self.get_account_address(self._package_editor, "program_id")
-        if program_id is None:
-            raise RuntimeError("Default accounts must contain program_id.")
 
     def generate_constants(self):
         if not self.idl.constants:
@@ -650,19 +663,6 @@ class CodeGen:
             self._add_packing_methods(editor, is_struct=True)
 
         self._package_editor.add_import(f"{self.root_module}.accounts", "accounts")
-
-    def get_account_address(self, editor, account_name):
-        default_account = self.default_accounts.get(account_name, None)
-        if default_account is not None:
-            if isinstance(default_account, (str, PublicKey)):
-                if default_account == "None":
-                    expr = "None"
-                else:
-                    expr = f'PublicKey("{default_account}")'
-            else:
-                expr = default_account(editor)
-            return expr
-        return None
 
     def generate_instruction(self, module_editor, instr):
         return InstructionCodeGen(self, module_editor, instr).generate()

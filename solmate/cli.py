@@ -57,7 +57,7 @@ def get_parser():
         required=False,
         default=[],
         help="Dictionary of account name to public key which are used to enable default arguments. "
-        "Must include program_id",
+        "Instructions will use program_id if provided.",
     )
     parser.add_argument(
         "--instruction-tag",
