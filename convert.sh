@@ -10,7 +10,7 @@ IDL_ROOT="$SOLMATE_ROOT/programs"
 
 function system_program() {
   # there is some ambiguity re some of the following accounts:
-  ROOT_MODULE="solmate.lib.system_program"
+  ROOT_MODULE="solmate.programs.system_program"
   ADDRESSES=(
     PROGRAM_ID=11111111111111111111111111111111
   )

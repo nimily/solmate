@@ -8,7 +8,7 @@ from solana.transaction import (
     AccountMeta,
     TransactionInstruction,
 )
-from solmate.lib.system_program.addrs import PROGRAM_ID
+from solmate.programs.system_program.addrs import PROGRAM_ID
 from solmate.utils import to_account_meta
 from typing import (
     List,

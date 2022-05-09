@@ -2,16 +2,13 @@
 from .instruction_tag import InstructionTag
 from dataclasses import dataclass
 from io import BytesIO
-from podite import (
-    BYTES_CATALOG,
-    U64,
-)
+from podite import BYTES_CATALOG
 from solana.publickey import PublicKey
 from solana.transaction import (
     AccountMeta,
     TransactionInstruction,
 )
-from solmate.lib.system_program.addrs import PROGRAM_ID
+from solmate.programs.system_program.addrs import PROGRAM_ID
 from solmate.utils import to_account_meta
 from typing import (
     List,
@@ -22,29 +19,27 @@ from typing import (
 # LOCK-END
 
 
-# LOCK-BEGIN[ix_cls(transfer)]: DON'T MODIFY
+# LOCK-BEGIN[ix_cls(assign)]: DON'T MODIFY
 @dataclass
-class TransferIx:
+class AssignIx:
     program_id: PublicKey
 
     # account metas
-    from_pubkey: AccountMeta
-    to_pubkey: AccountMeta
+    pubkey: AccountMeta
     remaining_accounts: Optional[List[AccountMeta]]
 
     # data fields
-    lamports: U64
+    owner: PublicKey
 
     def to_instruction(self):
         keys = []
-        keys.append(self.from_pubkey)
-        keys.append(self.to_pubkey)
+        keys.append(self.pubkey)
         if self.remaining_accounts is not None:
             keys.extend(self.remaining_accounts)
 
         buffer = BytesIO()
-        buffer.write(InstructionTag.to_bytes(InstructionTag.TRANSFER))
-        buffer.write(BYTES_CATALOG.pack(U64, self.lamports))
+        buffer.write(InstructionTag.to_bytes(InstructionTag.ASSIGN))
+        buffer.write(BYTES_CATALOG.pack(PublicKey, self.owner))
 
         return TransactionInstruction(
             keys=keys,
@@ -56,35 +51,26 @@ class TransferIx:
 # LOCK-END
 
 
-# LOCK-BEGIN[ix_fn(transfer)]: DON'T MODIFY
-def transfer(
-    from_pubkey: Union[str, PublicKey, AccountMeta],
-    to_pubkey: Union[str, PublicKey, AccountMeta],
-    lamports: U64,
+# LOCK-BEGIN[ix_fn(assign)]: DON'T MODIFY
+def assign(
+    pubkey: Union[str, PublicKey, AccountMeta],
+    owner: PublicKey,
     remaining_accounts: Optional[List[AccountMeta]] = None,
     program_id: PublicKey = PROGRAM_ID,
 ):
 
-    if isinstance(from_pubkey, (str, PublicKey)):
-        from_pubkey = to_account_meta(
-            from_pubkey,
+    if isinstance(pubkey, (str, PublicKey)):
+        pubkey = to_account_meta(
+            pubkey,
             is_signer=True,
             is_writable=True,
         )
 
-    if isinstance(to_pubkey, (str, PublicKey)):
-        to_pubkey = to_account_meta(
-            to_pubkey,
-            is_signer=False,
-            is_writable=True,
-        )
-
-    return TransferIx(
+    return AssignIx(
         program_id=program_id,
-        from_pubkey=from_pubkey,
-        to_pubkey=to_pubkey,
+        pubkey=pubkey,
         remaining_accounts=remaining_accounts,
-        lamports=lamports,
+        owner=owner,
     ).to_instruction()
 
 

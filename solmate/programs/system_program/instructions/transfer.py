@@ -11,7 +11,7 @@ from solana.transaction import (
     AccountMeta,
     TransactionInstruction,
 )
-from solmate.lib.system_program.addrs import PROGRAM_ID
+from solmate.programs.system_program.addrs import PROGRAM_ID
 from solmate.utils import to_account_meta
 from typing import (
     List,
@@ -22,27 +22,29 @@ from typing import (
 # LOCK-END
 
 
-# LOCK-BEGIN[ix_cls(allocate)]: DON'T MODIFY
+# LOCK-BEGIN[ix_cls(transfer)]: DON'T MODIFY
 @dataclass
-class AllocateIx:
+class TransferIx:
     program_id: PublicKey
 
     # account metas
-    new_pubkey: AccountMeta
+    from_pubkey: AccountMeta
+    to_pubkey: AccountMeta
     remaining_accounts: Optional[List[AccountMeta]]
 
     # data fields
-    space: U64
+    lamports: U64
 
     def to_instruction(self):
         keys = []
-        keys.append(self.new_pubkey)
+        keys.append(self.from_pubkey)
+        keys.append(self.to_pubkey)
         if self.remaining_accounts is not None:
             keys.extend(self.remaining_accounts)
 
         buffer = BytesIO()
-        buffer.write(InstructionTag.to_bytes(InstructionTag.ALLOCATE))
-        buffer.write(BYTES_CATALOG.pack(U64, self.space))
+        buffer.write(InstructionTag.to_bytes(InstructionTag.TRANSFER))
+        buffer.write(BYTES_CATALOG.pack(U64, self.lamports))
 
         return TransactionInstruction(
             keys=keys,
@@ -54,26 +56,35 @@ class AllocateIx:
 # LOCK-END
 
 
-# LOCK-BEGIN[ix_fn(allocate)]: DON'T MODIFY
-def allocate(
-    new_pubkey: Union[str, PublicKey, AccountMeta],
-    space: U64,
+# LOCK-BEGIN[ix_fn(transfer)]: DON'T MODIFY
+def transfer(
+    from_pubkey: Union[str, PublicKey, AccountMeta],
+    to_pubkey: Union[str, PublicKey, AccountMeta],
+    lamports: U64,
     remaining_accounts: Optional[List[AccountMeta]] = None,
     program_id: PublicKey = PROGRAM_ID,
 ):
 
-    if isinstance(new_pubkey, (str, PublicKey)):
-        new_pubkey = to_account_meta(
-            new_pubkey,
+    if isinstance(from_pubkey, (str, PublicKey)):
+        from_pubkey = to_account_meta(
+            from_pubkey,
             is_signer=True,
             is_writable=True,
         )
 
-    return AllocateIx(
+    if isinstance(to_pubkey, (str, PublicKey)):
+        to_pubkey = to_account_meta(
+            to_pubkey,
+            is_signer=False,
+            is_writable=True,
+        )
+
+    return TransferIx(
         program_id=program_id,
-        new_pubkey=new_pubkey,
+        from_pubkey=from_pubkey,
+        to_pubkey=to_pubkey,
         remaining_accounts=remaining_accounts,
-        space=space,
+        lamports=lamports,
     ).to_instruction()
 
 
