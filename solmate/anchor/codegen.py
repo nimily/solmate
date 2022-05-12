@@ -515,7 +515,7 @@ class CodeGen:
                         if len(named_fields) == 0:
                             variant_type = "None"
                         else:
-                            variant_type = "Variant(field=Option[named_fields(" + ", ".join(named_fields) + ")])"
+                            variant_type = "Variant(field=named_fields(" + ", ".join(named_fields) + "))"
                     else:
                         editor.add_from_import("podite", "Variant")
 
