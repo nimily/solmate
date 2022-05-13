@@ -45,6 +45,7 @@ class IdlType(Enum):
 class IdlField:
     name: str
     type: IdlType
+    metadata: Optional[object] = field(default=None)
 
     @property
     def py_name(self):
@@ -78,6 +79,7 @@ class EnumFields(Enum):
 class IdlEnumVariant:
     name: str
     fields: Optional[EnumFields] = field(default=None)
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json
@@ -95,6 +97,7 @@ class IdlTypeDefinitionTy(Enum):
 class IdlTypeDefinition:
     name: str
     type: IdlTypeDefinitionTy
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json
@@ -102,12 +105,14 @@ class IdlEventField:
     name: str
     type: IdlType
     index: bool
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json
 class IdlEvent:
     name: str
     fields: Vec[IdlEventField] = field(default_factory=list)
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json
@@ -115,6 +120,7 @@ class IdlErrorCode:
     code: int
     name: str
     msg: Optional[str] = field(default=None)
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json
@@ -122,6 +128,7 @@ class IdlConst:
     name: str
     type: IdlType
     value: str
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json
@@ -132,6 +139,7 @@ class IdlAccount:
     is_mut: bool
     is_signer: bool
     is_optional: bool = field(default=False)
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json
@@ -140,6 +148,7 @@ class IdlAccounts:
 
     name: str
     accounts: Vec["IdlAccountItem"]
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json
@@ -170,12 +179,14 @@ class IdlInstruction:
     name: str
     accounts: Vec[IdlAccountItem]
     args: Vec[IdlField]
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json
 class IdlState:
     struct: IdlTypeDefinition
     methods: Vec[IdlInstruction]
+    metadata: Optional[object] = field(default=None)
 
 
 @pod_json

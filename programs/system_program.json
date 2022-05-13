@@ -1,0 +1,388 @@
+{
+  "version": "1.10.0",
+  "name": "system_program",
+  "constants": [
+    {
+      "name": "MAX_PERMITTED_DATA_LENGTH",
+      "type": "u64",
+      "value": "10 * 1024 * 1024"
+    }
+  ],
+  "instructions": [
+    {
+      "name": "CreateAccount",
+      "accounts": [
+        {
+          "name": "fromPubkey",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "toPubkey",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "lamports",
+          "type": "u64"
+        },
+        {
+          "name": "space",
+          "type": "u64"
+        },
+        {
+          "name": "owner",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "Assign",
+      "accounts": [
+        {
+          "name": "pubkey",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "owner",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "Transfer",
+      "accounts": [
+        {
+          "name": "fromPubkey",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "toPubkey",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "lamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "CreateAccountWithSeed",
+      "accounts": [
+        {
+          "name": "fromPubkey",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "derivedPubkey",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "basePubkey",
+          "isMut": false,
+          "isSigner": true,
+          "isOptional": true,
+          "metadata": {
+            "set_if_different": "fromPubkey"
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "base",
+          "type": "publicKey"
+        },
+        {
+          "name": "seed",
+          "type": "string"
+        },
+        {
+          "name": "lamports",
+          "type": "u64"
+        },
+        {
+          "name": "space",
+          "type": "u64"
+        },
+        {
+          "name": "owner",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "AdvanceNonceAccount",
+      "accounts": [
+        {
+          "name": "noncePubkey",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "recentBlockhashesSysvar",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "WithdrawNonceAccount",
+      "accounts": [
+        {
+          "name": "noncePubkey",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "toPubkey",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "recentBlockhashesSysvar",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rentSysvar",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "lamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "InitializeNonceAccount",
+      "accounts": [
+        {
+          "name": "noncePubkey",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "recentBlockhashesSysvar",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rentSysvar",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "authority",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "AuthorizeNonceAccount",
+      "accounts": [
+        {
+          "name": "noncePubkey",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "newAuthority",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "Allocate",
+      "accounts": [
+        {
+          "name": "newPubkey",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "space",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "AllocateWithSeed",
+      "accounts": [
+        {
+          "name": "derivedPubkey",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "basePubkey",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "base",
+          "type": "publicKey"
+        },
+        {
+          "name": "seed",
+          "type": "string"
+        },
+        {
+          "name": "space",
+          "type": "u64"
+        },
+        {
+          "name": "owner",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "AssignWithSeed",
+      "accounts": [
+        {
+          "name": "derivedPubkey",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "basePubkey",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "base",
+          "type": "publicKey"
+        },
+        {
+          "name": "seed",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "TransferWithSeed",
+      "accounts": [
+        {
+          "name": "fromPubkey",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "basePubkey",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "derivedPubkey",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "lamports",
+          "type": "u64"
+        },
+        {
+          "name": "seed",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "type": "publicKey"
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 0,
+      "name": "AccountAlreadyInUse",
+      "msg": "An account with the same address already exists"
+    },
+    {
+      "code": 1,
+      "name": "ResultWithNegativeLamports",
+      "msg": "Account does not have enough SOL to perform the operation"
+    },
+    {
+      "code": 2,
+      "name": "InvalidProgramId",
+      "msg": "Cannot assign account to this program id"
+    },
+    {
+      "code": 3,
+      "name": "InvalidAccountDataLength",
+      "msg": "Cannot allocate account data of this length"
+    },
+    {
+      "code": 4,
+      "name": "MaxSeedLengthExceeded",
+      "msg": "Length of requested seed is too long"
+    },
+    {
+      "code": 5,
+      "name": "AddressWithSeedMismatch",
+      "msg": "Provided address does not match addressed derived from seed"
+    },
+    {
+      "code": 6,
+      "name": "NonceNoRecentBlockhashes",
+      "msg": "Advancing stored nonce requires a populated RecentBlockhashes sysvar"
+    },
+    {
+      "code": 7,
+      "name": "NonceBlockhashNotExpired",
+      "msg": "Stored nonce is still in recent_blockhashes"
+    },
+    {
+      "code": 8,
+      "name": "NonceUnexpectedBlockhashValue",
+      "msg": "Specified nonce does not match stored nonce"
+    }
+  ]
+}

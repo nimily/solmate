@@ -10,7 +10,12 @@ from solana.sysvar import SYSVAR_RENT_PUBKEY
 from spl.token.constants import TOKEN_PROGRAM_ID
 
 from solmate.anchor import Idl
-from solmate.anchor.codegen import usize_type, unix_timestamp_type, program_error_type, CodeGen
+from solmate.anchor.codegen import (
+    usize_type,
+    unix_timestamp_type,
+    program_error_type,
+    CodeGen,
+)
 from solmate.anchor.editor import CodeEditor
 from solmate.utils import pascal_to_snake
 
@@ -26,11 +31,11 @@ def self_trade_behavior_type(editor: CodeEditor):
 
 
 def cli(
-        idl_dir: str,
-        out_dir: str,
-        pids_dir: Union[str, Dict[str, PublicKey]],
-        parent_module: str,
-        skip_types: Set[str],
+    idl_dir: str,
+    out_dir: str,
+    pids_dir: Union[str, Dict[str, PublicKey]],
+    parent_module: str,
+    skip_types: Set[str],
 ):
     protocol_to_idl_and_types = {}
     protocol_to_pid = get_protocols(idl_dir, pids_dir)
@@ -78,7 +83,7 @@ def cli(
 
 
 def defined_types_to_imports(
-        root_module: str, idl: Idl
+    root_module: str, idl: Idl
 ) -> Dict[str, Callable[[CodeEditor], str]]:
     def add_import(name: str, editor: CodeEditor) -> str:
         editor.add_from_import(f"{root_module}.types.{pascal_to_snake(name)}", name)
