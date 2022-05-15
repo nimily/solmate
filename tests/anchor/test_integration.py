@@ -6,6 +6,7 @@ import tests.anchor.cross_idl_cli as cross_idl_cli
 
 from solana.keypair import Keypair
 
+from podite import U128
 
 def get_project_root() -> Path:
     return Path(__file__).parent.parent.parent
@@ -56,13 +57,13 @@ def test():
     round_tripped = CrossIdlReferenceType.from_bytes(_bytes)
     assert reference_type == round_tripped
 
-    OptionalSomeType = Option[SomeType]
-    enum_struct = EnumWithStructVariant.STRUCT_VARIANT(
-        OptionalSomeType.SOME((SomeType(5),))
-    )
+    enum_struct = EnumWithStructVariant.STRUCT_VARIANT((SomeType(5), ))
     _bytes = EnumWithStructVariant.to_bytes(enum_struct, format="FORMAT_ZERO_COPY")
     round_tripped = EnumWithStructVariant.from_bytes(_bytes)
-    assert enum_struct.field.field == round_tripped.field.field
+    assert enum_struct == round_tripped
 
-    # the following currently doesn't work due to an issue with __eq__
-    # assert enum_struct == round_tripped
+    OptionalU128 = Option[U128]
+    enum_struct_optional = EnumWithStructVariant.OPTIONAL_VARIANT((OptionalU128.SOME(42), ))
+    _bytes = EnumWithStructVariant.to_bytes(enum_struct_optional, format="FORMAT_ZERO_COPY")
+    round_tripped = EnumWithStructVariant.from_bytes(_bytes)
+    assert enum_struct_optional == round_tripped
