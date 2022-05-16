@@ -3,6 +3,7 @@ from .instruction_tag import InstructionTag
 from dataclasses import dataclass
 from io import BytesIO
 from solana.publickey import PublicKey
+from solana.sysvar import SYSVAR_RECENT_BLOCKHASHES_PUBKEY as RECENT_BLOCKHASHES_SYSVAR
 from solana.transaction import (
     AccountMeta,
     TransactionInstruction,
@@ -53,8 +54,10 @@ class AdvanceNonceAccountIx:
 # LOCK-BEGIN[ix_fn(advance_nonce_account)]: DON'T MODIFY
 def advance_nonce_account(
     nonce_pubkey: Union[str, PublicKey, AccountMeta],
-    recent_blockhashes_sysvar: Union[str, PublicKey, AccountMeta],
     authority: Union[str, PublicKey, AccountMeta],
+    recent_blockhashes_sysvar: Union[
+        str, PublicKey, AccountMeta
+    ] = RECENT_BLOCKHASHES_SYSVAR,
     remaining_accounts: Optional[List[AccountMeta]] = None,
     program_id: PublicKey = PROGRAM_ID,
 ):

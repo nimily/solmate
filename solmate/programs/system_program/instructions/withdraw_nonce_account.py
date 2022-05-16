@@ -7,6 +7,10 @@ from podite import (
     U64,
 )
 from solana.publickey import PublicKey
+from solana.sysvar import (
+    SYSVAR_RECENT_BLOCKHASHES_PUBKEY as RECENT_BLOCKHASHES_SYSVAR,
+    SYSVAR_RENT_PUBKEY as RENT_SYSVAR,
+)
 from solana.transaction import (
     AccountMeta,
     TransactionInstruction,
@@ -66,10 +70,12 @@ class WithdrawNonceAccountIx:
 def withdraw_nonce_account(
     nonce_pubkey: Union[str, PublicKey, AccountMeta],
     to_pubkey: Union[str, PublicKey, AccountMeta],
-    recent_blockhashes_sysvar: Union[str, PublicKey, AccountMeta],
-    rent_sysvar: Union[str, PublicKey, AccountMeta],
     authority: Union[str, PublicKey, AccountMeta],
     lamports: U64,
+    recent_blockhashes_sysvar: Union[
+        str, PublicKey, AccountMeta
+    ] = RECENT_BLOCKHASHES_SYSVAR,
+    rent_sysvar: Union[str, PublicKey, AccountMeta] = RENT_SYSVAR,
     remaining_accounts: Optional[List[AccountMeta]] = None,
     program_id: PublicKey = PROGRAM_ID,
 ):

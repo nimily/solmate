@@ -9,7 +9,6 @@ IDL_ROOT="$SOLMATE_ROOT/programs"
 
 
 function system_program() {
-  # there is some ambiguity re some of the following accounts:
   ROOT_MODULE="solmate.programs.system_program"
   ADDRESSES=(
     PROGRAM_ID=11111111111111111111111111111111
@@ -17,7 +16,8 @@ function system_program() {
 
   DEFAULT_ACCOUNTS=(
     program_id=$ROOT_MODULE.addrs.PROGRAM_ID
-    rent=solana.sysvar.SYSVAR_RENT_PUBKEY
+    recent_blockhashes_sysvar=solana.sysvar.SYSVAR_RECENT_BLOCKHASHES_PUBKEY
+    rent_sysvar=solana.sysvar.SYSVAR_RENT_PUBKEY
     clock=solana.sysvar.SYSVAR_CLOCK_PUBKEY
   )
 
@@ -33,7 +33,6 @@ function system_program() {
   cd ..
   return $exit_code
 }
-
 
 function convert() {
   echo "Converting $1..."

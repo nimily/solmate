@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from io import BytesIO
 from podite import BYTES_CATALOG
 from solana.publickey import PublicKey
+from solana.sysvar import (
+    SYSVAR_RECENT_BLOCKHASHES_PUBKEY as RECENT_BLOCKHASHES_SYSVAR,
+    SYSVAR_RENT_PUBKEY as RENT_SYSVAR,
+)
 from solana.transaction import (
     AccountMeta,
     TransactionInstruction,
@@ -58,9 +62,11 @@ class InitializeNonceAccountIx:
 # LOCK-BEGIN[ix_fn(initialize_nonce_account)]: DON'T MODIFY
 def initialize_nonce_account(
     nonce_pubkey: Union[str, PublicKey, AccountMeta],
-    recent_blockhashes_sysvar: Union[str, PublicKey, AccountMeta],
-    rent_sysvar: Union[str, PublicKey, AccountMeta],
     authority: PublicKey,
+    recent_blockhashes_sysvar: Union[
+        str, PublicKey, AccountMeta
+    ] = RECENT_BLOCKHASHES_SYSVAR,
+    rent_sysvar: Union[str, PublicKey, AccountMeta] = RENT_SYSVAR,
     remaining_accounts: Optional[List[AccountMeta]] = None,
     program_id: PublicKey = PROGRAM_ID,
 ):
