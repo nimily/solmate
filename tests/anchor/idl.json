@@ -180,6 +180,17 @@
                 "type": "u64"
               }
             ]
+          },
+          {
+            "name": "OptionalVariant",
+            "fields": [
+              {
+                "name": "opt",
+                "type": {
+                  "option": "u128"
+                }
+              }
+            ]
           }
         ]
       }
