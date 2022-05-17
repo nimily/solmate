@@ -63,27 +63,27 @@ class InstructionCodeGen:
             return expr
         return None
 
-    def generate_ix_cls(self):
-        codegen = self.codegen
-        editor = self.editor
-        module_editor = self.module_editor
-
-        instr = self.instr
+    def generate_ix_cls_declaration(self):
         instr_name = self.instr_name
+        self.module_editor.add_from_import(
+            f".{instr_name}", f"{snake_to_pascal(instr_name)}Ix"
+        )
+        self.editor.add_from_import("dataclasses", "dataclass")
+
+        return [
+            "@dataclass\n",
+            f"class {snake_to_pascal(instr_name)}Ix:\n",
+        ]
+
+    def generate_ix_cls_metas_fields(self):
+        editor = self.editor
 
         editor.add_from_import("solana.transaction", "AccountMeta")
         editor.add_from_import("solana.publickey", "PublicKey")
-        editor.add_from_import("dataclasses", "dataclass")
         editor.add_from_import("typing", "Optional")
         editor.add_from_import("typing", "List")
 
-        # generating instruction account metas
-        module_editor.add_from_import(
-            f".{instr_name}", f"{snake_to_pascal(instr_name)}Ix"
-        )
-        module_editor.add_from_import(f".{instr_name}", f"{instr_name}")
         code = [
-            "@dataclass\n" f"class {snake_to_pascal(instr_name)}Ix:\n",
             "    program_id: PublicKey\n",
             "\n",
             "    # account metas\n",
@@ -96,21 +96,35 @@ class InstructionCodeGen:
             code.append(f"    {account_name}: {account_type}\n")
 
         code.append(f"    remaining_accounts: Optional[List[AccountMeta]]\n")
+        return code
 
-        # generating instruction data fields
+    def generate_ix_cls_args_fields(self):
+        editor = self.editor
+        instr = self.instr
+
+        code = []
         if len(instr.args) > 0:
             code += [
                 "\n",
                 "    # data fields\n",
             ]
         for arg in instr.args:
-            arg_type = codegen.get_type_as_string(arg.type, editor, within_types=False)
+            arg_type = self.codegen.get_type_as_string(
+                arg.type, editor, within_types=False
+            )
             code.append(f"    {arg.py_name}: {arg_type}\n")
 
-        # generating to_instruction() function
-        code.append("\n")
-        code.append("    def to_instruction(self):\n")
-        code.append("        keys = []\n")
+        return code
+
+    def generate_ix_cls_to_instruction_method(self):
+        editor = self.editor
+        instr = self.instr
+
+        code = [
+            "\n",
+            "    def to_instruction(self):\n",
+            "        keys = []\n",
+        ]
         for account, prefix in self.instr_accounts:
             account_name = camel_to_snake(prefix + account.field.name)
             if account.field.is_optional:
@@ -132,7 +146,9 @@ class InstructionCodeGen:
             f"        buffer.write(InstructionTag.to_bytes(InstructionTag.{instr_tag_name}))\n"
         )
         for arg in instr.args:
-            arg_type = codegen.get_type_as_string(arg.type, editor, within_types=False)
+            arg_type = self.codegen.get_type_as_string(
+                arg.type, editor, within_types=False
+            )
 
             editor.add_from_import("podite", "BYTES_CATALOG")
             code.append(
@@ -149,9 +165,20 @@ class InstructionCodeGen:
         code.append("\n")
         return code
 
+    def generate_ix_cls(self):
+        code = self.generate_ix_cls_declaration()
+        code += self.generate_ix_cls_metas_fields()
+        code += self.generate_ix_cls_args_fields()
+        code += self.generate_ix_cls_to_instruction_method()
+
+        return code
+
     def generate_ix_func_declaration(self):
+        instr_name = self.instr_name
+        self.module_editor.add_from_import(f".{instr_name}", f"{instr_name}")
+
         # generating helper function's code
-        code = [f"def {self.instr_name}(\n"]
+        code = [f"def {instr_name}(\n"]
         code += self.generate_ix_func_args()
         code += ["):\n"]
         return code
@@ -161,6 +188,11 @@ class InstructionCodeGen:
         editor = self.editor
         codegen = self.codegen
         instr = self.instr
+
+        editor.add_from_import("solana.transaction", "AccountMeta")
+        editor.add_from_import("solana.publickey", "PublicKey")
+        editor.add_from_import("typing", "Optional")
+        editor.add_from_import("typing", "List")
 
         args_without_default = []
         args_with_default = []
@@ -545,7 +577,11 @@ class CodeGen:
                         if len(named_fields) == 0:
                             variant_type = "None"
                         else:
-                            variant_type = "Variant(field=named_fields(" + ", ".join(named_fields) + "))"
+                            variant_type = (
+                                "Variant(field=named_fields("
+                                + ", ".join(named_fields)
+                                + "))"
+                            )
                     else:
                         editor.add_from_import("podite", "Variant")
 
