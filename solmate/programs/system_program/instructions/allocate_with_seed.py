@@ -70,7 +70,7 @@ def allocate_with_seed(
     owner: PublicKey,
     derived_pubkey: Optional[Union[str, PublicKey, AccountMeta]] = None,
     base_pubkey: Optional[Union[str, PublicKey, AccountMeta]] = None,
-    remaining_accounts: Optional[List[AccountMeta]] = None,
+    remaining_accounts: Optional[List[Union[str, PublicKey, AccountMeta]]] = None,
     program_id: PublicKey = PROGRAM_ID,
 ):
 
@@ -93,6 +93,15 @@ def allocate_with_seed(
             is_signer=True,
             is_writable=False,
         )
+
+    if isinstance(remaining_accounts, list):
+        for i in range(len(remaining_accounts)):
+            if isinstance(remaining_accounts[i], (str, PublicKey)):
+                remaining_accounts[i] = to_account_meta(
+                    remaining_accounts[i],
+                    is_signer=False,
+                    is_writable=False,
+                )
 
     return AllocateWithSeedIx(
         program_id=program_id,

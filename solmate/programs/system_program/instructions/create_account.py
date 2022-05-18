@@ -67,7 +67,7 @@ def create_account(
     lamports: U64,
     space: U64,
     owner: PublicKey,
-    remaining_accounts: Optional[List[AccountMeta]] = None,
+    remaining_accounts: Optional[List[Union[str, PublicKey, AccountMeta]]] = None,
     program_id: PublicKey = PROGRAM_ID,
 ):
 
@@ -84,6 +84,15 @@ def create_account(
             is_signer=True,
             is_writable=True,
         )
+
+    if isinstance(remaining_accounts, list):
+        for i in range(len(remaining_accounts)):
+            if isinstance(remaining_accounts[i], (str, PublicKey)):
+                remaining_accounts[i] = to_account_meta(
+                    remaining_accounts[i],
+                    is_signer=False,
+                    is_writable=False,
+                )
 
     return CreateAccountIx(
         program_id=program_id,

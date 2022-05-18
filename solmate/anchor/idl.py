@@ -139,6 +139,7 @@ class IdlAccount:
     is_mut: bool
     is_signer: bool
     is_optional: bool = field(default=False)
+    is_array: bool = field(default=False)
     metadata: Optional[object] = field(default=None)
 
 

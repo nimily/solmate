@@ -20,9 +20,9 @@ class SystemProgramInstructionCodeGen(InstructionCodeGen):
 
     def generate_ix_func_key_preprocessor(self, account, prefix):
         code = ["\n"]
-        if account.field.name == "basePubkey":
+        if account.name == "basePubkey":
             if self.instr_name != "transfer_with_seed":
-                metadata = account.field.metadata or {}
+                metadata = account.metadata or {}
                 refer = metadata.get("set_if_different", None)
                 if refer is not None:
                     refer = camel_to_snake(refer)
@@ -36,7 +36,7 @@ class SystemProgramInstructionCodeGen(InstructionCodeGen):
                     "        base_pubkey = base\n",
                     "\n",
                 ]
-        elif account.field.name == "derivedPubkey":
+        elif account.name == "derivedPubkey":
             self.editor.add_from_import("solana.publickey", "PublicKey")
 
             if self.instr_name == "transfer_with_seed":

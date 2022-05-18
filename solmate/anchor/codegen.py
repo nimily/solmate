@@ -14,6 +14,7 @@ from .idl import (
     EnumFields,
     IdlAccountItem,
     IdlInstruction,
+    IdlAccount,
 )
 
 
@@ -22,26 +23,37 @@ class InstructionCodeGen:
     editor: "CodeEditor"
     module_editor: "CodeEditor"
     instr: IdlInstruction
-    instr_account: list[tuple[IdlAccountItem, str]]
+    instr_account: list[tuple[IdlAccount, str]]
+    flattening_mode: Literal["ignore", "prefix"]
 
     def __init__(
-        self, codegen: "CodeGen", module_editor: CodeEditor, instr: IdlInstruction
+        self,
+        codegen: "CodeGen",
+        module_editor: CodeEditor,
+        instr: IdlInstruction,
+        flattening_mode: Literal["ignore", "prefix"] = "ignore",
     ):
         self.codegen = codegen
         self.module_editor = module_editor
         self.instr = instr
-        self.instr_accounts = self._flatten_accounts(instr.accounts)
+        self.flattening_mode = flattening_mode
+        self.instr_accounts = self.get_instr_accounts()
 
     @property
     def instr_name(self):
         return camel_to_snake(self.instr.name)
 
-    @staticmethod
-    def _flatten_accounts(accounts: Vec[IdlAccountItem], name_prefix=""):
+    def _flatten_accounts(self, accounts: Vec[IdlAccountItem], name_prefix=""):
         flat = []
         for account in accounts:
             if int(account) == int(IdlAccountItem.IDL_ACCOUNT):
-                flat.append((account, name_prefix))
+                if self.flattening_mode == "ignore":
+                    name = account.field.name
+                elif self.flattening_mode == "prefix":
+                    name = name_prefix + account.field.name
+                else:
+                    raise ValueError()
+                flat.append((account.field, camel_to_snake(name)))
             else:
                 prefix = f"{name_prefix}{account.field.name}_"
                 flat += InstructionCodeGen._flatten_accounts(
@@ -49,6 +61,23 @@ class InstructionCodeGen:
                 )
 
         return flat
+
+    def get_instr_accounts(self):
+        accounts = self._flatten_accounts(self.instr.accounts)
+        accounts.append(
+            (
+                IdlAccount(
+                    name="remaining_accounts",
+                    is_mut=False,
+                    is_signer=False,
+                    is_optional=True,
+                    is_array=True,
+                ),
+                "remaining_accounts",
+            )
+        )
+
+        return accounts
 
     def get_default_account(self, editor, account_name):
         default_account = self.codegen.default_accounts.get(account_name, None)
@@ -88,14 +117,13 @@ class InstructionCodeGen:
             "\n",
             "    # account metas\n",
         ]
-        for account, prefix in self.instr_accounts:
-            account_name = camel_to_snake(prefix + account.field.name)
+        for account, account_name in self.instr_accounts:
+            inner_type = "List[AccountMeta]" if account.is_array else "AccountMeta"
             account_type = (
-                "Optional[AccountMeta]" if account.field.is_optional else "AccountMeta"
+                f"Optional[{inner_type}]" if account.is_optional else inner_type
             )
             code.append(f"    {account_name}: {account_type}\n")
 
-        code.append(f"    remaining_accounts: Optional[List[AccountMeta]]\n")
         return code
 
     def generate_ix_cls_args_fields(self):
@@ -125,16 +153,20 @@ class InstructionCodeGen:
             "    def to_instruction(self):\n",
             "        keys = []\n",
         ]
-        for account, prefix in self.instr_accounts:
-            account_name = camel_to_snake(prefix + account.field.name)
-            if account.field.is_optional:
+        for account, account_name in self.instr_accounts:
+            if account.is_optional:
                 code.append(f"        if self.{account_name} is not None:\n")
-                code.append(f"            keys.append(self.{account_name})\n")
+                nest = 3
             else:
-                code.append(f"        keys.append(self.{account_name})\n")
+                nest = 2
 
-        code.append(f"        if self.remaining_accounts is not None:\n")
-        code.append(f"            keys.extend(self.remaining_accounts)\n")
+            indent = "    " * nest
+
+            if account.is_array:
+                code.append(indent + f"keys.extend(self.{account_name})\n")
+            else:
+                code.append(indent + f"keys.append(self.{account_name})\n")
+
         code.append("\n")
 
         # generating data
@@ -198,18 +230,22 @@ class InstructionCodeGen:
         args_with_default = []
         editor.add_from_import("typing", "Union")
         meta_type = "Union[str, PublicKey, AccountMeta]"
-        for account, prefix in self.instr_accounts:
-            account_name = camel_to_snake(prefix + account.field.name)
+        for account, account_name in self.instr_accounts:
             default_account = self.get_default_account(editor, account_name)
 
-            if account.field.is_optional or default_account == "None":
-                account_type = f"Optional[{meta_type}]"
+            if account.is_array:
+                inner_type = f"List[{meta_type}]"
             else:
-                account_type = meta_type
+                inner_type = meta_type
+
+            if account.is_optional or default_account == "None":
+                account_type = f"Optional[{inner_type}]"
+            else:
+                account_type = inner_type
 
             if default_account is not None:
                 args_with_default.append((account_name, account_type, default_account))
-            elif account.field.is_optional:
+            elif account.is_optional:
                 args_with_default.append((account_name, account_type, "None"))
             else:
                 args_without_default.append((account_name, account_type))
@@ -218,9 +254,6 @@ class InstructionCodeGen:
             arg_type = codegen.get_type_as_string(arg.type, editor, within_types=False)
             args_without_default.append((arg.py_name, arg_type))
 
-        args_with_default.append(
-            ("remaining_accounts", "Optional[List[AccountMeta]]", "None")
-        )
         program_id = self.get_default_account(editor, "program_id")
         if program_id is None:
             args_without_default.append(("program_id", "PublicKey"))
@@ -235,19 +268,41 @@ class InstructionCodeGen:
 
         return code
 
-    def generate_ix_func_key_preprocessor(self, account, prefix):
+    def generate_ix_func_key_preprocessor(self, account, account_name):
         self.editor.add_from_import("solmate.utils", "to_account_meta")
 
-        code = []
-        account_name = camel_to_snake(prefix + account.field.name)
-        code.append(f"    if isinstance({account_name}, (str, PublicKey)):\n")
-        code.append(f"        {account_name} = to_account_meta(\n")
-        code.append(f"            {account_name},\n")
-        code.append(f"            is_signer={account.field.is_signer},\n")
-        code.append(f"            is_writable={account.field.is_mut},\n")
-        code.append(f"        )\n")
+        if account.is_array:
+            if account.is_optional:
+                return [
+                    f"    if isinstance({account_name}, list):\n",
+                    f"        for i in range(len({account_name})):\n",
+                    f"            if isinstance({account_name}[i], (str, PublicKey)):\n",
+                    f"                {account_name}[i] = to_account_meta(\n",
+                    f"                    {account_name}[i],\n",
+                    f"                    is_signer={account.is_signer},\n",
+                    f"                    is_writable={account.is_mut},\n",
+                    f"                )\n",
+                ]
+            else:
+                return [
+                    f"    for i in range(len({account_name})):\n",
+                    f"        if isinstance({account_name}[i], (str, PublicKey)):\n",
+                    f"            {account_name}[i] = to_account_meta(\n",
+                    f"                {account_name}[i],\n",
+                    f"                is_signer={account.is_signer},\n",
+                    f"                is_writable={account.is_mut},\n",
+                    f"            )\n",
+                ]
 
-        return code
+        else:
+            return [
+                f"    if isinstance({account_name}, (str, PublicKey)):\n",
+                f"        {account_name} = to_account_meta(\n",
+                f"            {account_name},\n",
+                f"            is_signer={account.is_signer},\n",
+                f"            is_writable={account.is_mut},\n",
+                f"        )\n",
+            ]
 
     def generate_ix_func_keys_compiler(self):
         code = []
@@ -266,10 +321,8 @@ class InstructionCodeGen:
             f"    return {snake_to_pascal(instr_name)}Ix(\n",
             f"        program_id=program_id,\n",
         ]
-        for account, prefix in instr_accounts:
-            account_name = camel_to_snake(prefix + account.field.name)
+        for account, account_name in instr_accounts:
             code.append(f"        {account_name}={account_name},\n")
-        code.append(f"        remaining_accounts=remaining_accounts,\n")
         for arg in instr.args:
             code.append(f"        {arg.py_name}={arg.py_name},\n")
         code.append(f"    ).to_instruction()\n")

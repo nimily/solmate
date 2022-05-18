@@ -67,7 +67,7 @@ def initialize_nonce_account(
         str, PublicKey, AccountMeta
     ] = RECENT_BLOCKHASHES_SYSVAR,
     rent_sysvar: Union[str, PublicKey, AccountMeta] = RENT_SYSVAR,
-    remaining_accounts: Optional[List[AccountMeta]] = None,
+    remaining_accounts: Optional[List[Union[str, PublicKey, AccountMeta]]] = None,
     program_id: PublicKey = PROGRAM_ID,
 ):
 
@@ -91,6 +91,15 @@ def initialize_nonce_account(
             is_signer=False,
             is_writable=False,
         )
+
+    if isinstance(remaining_accounts, list):
+        for i in range(len(remaining_accounts)):
+            if isinstance(remaining_accounts[i], (str, PublicKey)):
+                remaining_accounts[i] = to_account_meta(
+                    remaining_accounts[i],
+                    is_signer=False,
+                    is_writable=False,
+                )
 
     return InitializeNonceAccountIx(
         program_id=program_id,
