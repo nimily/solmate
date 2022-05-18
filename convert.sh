@@ -34,6 +34,32 @@ function system_program() {
   return $exit_code
 }
 
+
+function token_program() {
+  ROOT_MODULE="solmate.programs.token_program"
+  ADDRESSES=(
+    PROGRAM_ID=TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+  )
+
+  DEFAULT_ACCOUNTS=(
+    program_id=$ROOT_MODULE.addrs.PROGRAM_ID
+    rent_sysvar=solana.sysvar.SYSVAR_RENT_PUBKEY
+  )
+
+  cd programs
+  PYTHONPATH=$SOLMATE_ROOT:$PYTHONPATH python -m token_program_codegen \
+    --idl $IDL_ROOT/token_program.json \
+    --module $ROOT_MODULE \
+    --root-dir $SOLMATE_ROOT \
+    --addrs ${ADDRESSES[@]} \
+    --default-accounts ${DEFAULT_ACCOUNTS[@]} \
+    --instruction-tag "incremental:U32"
+  exit_code=$?
+  cd ..
+  return $exit_code
+}
+
+
 function convert() {
   echo "Converting $1..."
   tput dim
@@ -50,3 +76,6 @@ function convert() {
 
 
 convert system_program
+convert token_program
+
+black solmate/programs

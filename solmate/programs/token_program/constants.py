@@ -1,0 +1,13 @@
+# LOCK-BEGIN[imports]: DON'T MODIFY
+from solmate.dtypes import Usize
+
+# LOCK-END
+
+
+# LOCK-BEGIN[constants]: DON'T MODIFY
+MIN_SIGNERS: Usize = 1
+MAX_SIGNERS: Usize = 11
+SPL_TOKEN_ACCOUNT_MINT_OFFSET: Usize = 0
+SPL_TOKEN_ACCOUNT_OWNER_OFFSET: Usize = 32
+ACCOUNT_INITIALIZED_INDEX: Usize = 108
+# LOCK-END
