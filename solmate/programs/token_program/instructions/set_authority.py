@@ -3,10 +3,7 @@ from ..constants import MAX_SIGNERS
 from .instruction_tag import InstructionTag
 from dataclasses import dataclass
 from io import BytesIO
-from podite import (
-    BYTES_CATALOG,
-    Option,
-)
+from podite import BYTES_CATALOG
 from solana.publickey import PublicKey
 from solana.transaction import (
     AccountMeta,
@@ -37,7 +34,7 @@ class SetAuthorityIx:
 
     # data fields
     authority_type: AuthorityType
-    new_authority: Option[PublicKey]
+    new_authority: Optional[PublicKey]
 
     def to_instruction(self):
         keys = []
@@ -51,7 +48,7 @@ class SetAuthorityIx:
         buffer = BytesIO()
         buffer.write(InstructionTag.to_bytes(InstructionTag.SET_AUTHORITY))
         buffer.write(BYTES_CATALOG.pack(AuthorityType, self.authority_type))
-        buffer.write(BYTES_CATALOG.pack(Option[PublicKey], self.new_authority))
+        buffer.write(BYTES_CATALOG.pack(Optional[PublicKey], self.new_authority))
 
         return TransactionInstruction(
             keys=keys,
@@ -68,7 +65,7 @@ def set_authority(
     mint_or_account: Union[str, PublicKey, AccountMeta],
     source_owner: Union[str, PublicKey, AccountMeta],
     authority_type: AuthorityType,
-    new_authority: Option[PublicKey],
+    new_authority: Optional[PublicKey],
     signers: Optional[List[Union[str, PublicKey, AccountMeta]]] = None,
     remaining_accounts: Optional[List[Union[str, PublicKey, AccountMeta]]] = None,
     program_id: PublicKey = PROGRAM_ID,

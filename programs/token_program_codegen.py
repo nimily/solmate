@@ -3,7 +3,7 @@ from typing import Dict, Set, Callable, Literal
 from solmate.anchor import CodeGen
 from solmate.anchor.codegen import InstructionCodeGen, usize_type
 from solmate.anchor.editor import CodeEditor
-from solmate.anchor.idl import Idl, IdlAccount
+from solmate.anchor.idl import Idl, IdlAccount, IdlType
 from solmate.utils import camel_to_snake
 
 
@@ -101,6 +101,25 @@ class TokenProgramInstructionCodeGen(InstructionCodeGen):
 class TokenProgramCodeGen(CodeGen):
     def generate_instruction(self, module_editor, instr):
         return TokenProgramInstructionCodeGen(self, module_editor, instr).generate()
+
+    def get_type_as_string(
+        self, field_type, editor, within_types, explicit_forward_ref=False
+    ):
+        if field_type.is_a(IdlType.OPTION):
+            inner_type = super().get_type_as_string(
+                field_type.field, editor, within_types, explicit_forward_ref
+            )
+
+            if within_types:
+                editor.add_from_import("solmate.dtypes", "COptional")
+                return f"COptional[{inner_type}]"
+            else:
+                editor.add_from_import("typing", "Optional")
+                return f"Optional[{inner_type}]"
+
+        return super().get_type_as_string(
+            field_type, editor, within_types, explicit_forward_ref
+        )
 
 
 def cli(

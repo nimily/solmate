@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from io import BytesIO
 from podite import (
     BYTES_CATALOG,
-    Option,
     U8,
 )
 from solana.publickey import PublicKey
@@ -35,7 +34,7 @@ class InitializeMint2Ix:
     # data fields
     decimals: U8
     mint_authority: PublicKey
-    freeze_authority: Option[PublicKey]
+    freeze_authority: Optional[PublicKey]
 
     def to_instruction(self):
         keys = []
@@ -47,7 +46,7 @@ class InitializeMint2Ix:
         buffer.write(InstructionTag.to_bytes(InstructionTag.INITIALIZE_MINT2))
         buffer.write(BYTES_CATALOG.pack(U8, self.decimals))
         buffer.write(BYTES_CATALOG.pack(PublicKey, self.mint_authority))
-        buffer.write(BYTES_CATALOG.pack(Option[PublicKey], self.freeze_authority))
+        buffer.write(BYTES_CATALOG.pack(Optional[PublicKey], self.freeze_authority))
 
         return TransactionInstruction(
             keys=keys,
@@ -64,7 +63,7 @@ def initialize_mint2(
     mint: Union[str, PublicKey, AccountMeta],
     decimals: U8,
     mint_authority: PublicKey,
-    freeze_authority: Option[PublicKey],
+    freeze_authority: Optional[PublicKey],
     remaining_accounts: Optional[List[Union[str, PublicKey, AccountMeta]]] = None,
     program_id: PublicKey = PROGRAM_ID,
 ):

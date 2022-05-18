@@ -1,7 +1,7 @@
 # LOCK-BEGIN[imports]: DON'T MODIFY
 from podite import (
     Enum,
-    U32,
+    U8,
     Variant,
     pod,
 )
@@ -11,7 +11,7 @@ from podite import (
 
 # LOCK-BEGIN[instruction_tag]: DON'T MODIFY
 @pod
-class InstructionTag(Enum[U32]):
+class InstructionTag(Enum[U8]):
     INITIALIZE_MINT = Variant()
     INITIALIZE_ACCOUNT = Variant()
     INITIALIZE_MULTISIG = Variant()

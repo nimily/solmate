@@ -1,8 +1,7 @@
 from typing import Type
 
-from podite import U32, U64, I64, Enum, Variant, Option, pod
-from podite._utils import _GetitemToCall, get_calling_module
-
+from podite import U32, U64, I64, Enum, Variant, Option, pod, BYTES_CATALOG
+from podite._utils import _GetitemToCall, get_calling_module, get_concrete_type
 
 Usize = U64  # Should it be U32?
 UnixTimestamp = I64
@@ -76,3 +75,56 @@ def _coption(name, type_: Type):
 
 
 COption = _GetitemToCall("COption", _coption)
+
+
+def _coptional(name, type_: Type):
+    module = get_calling_module()
+
+    @pod
+    class _COptional(Enum[U32]):
+        @classmethod
+        def _is_static(cls) -> bool:
+            return True
+
+        @classmethod
+        def _calc_size(cls, obj, **kwargs):
+            return cls._calc_max_size()
+
+        @classmethod
+        def _calc_max_size(cls):
+            return 4 + BYTES_CATALOG.calc_max_size(get_concrete_type(module, type_))
+
+        @classmethod
+        def _from_bytes_partial(cls, buffer, **kwargs):
+            has_value = BYTES_CATALOG.unpack_partial(U32, buffer)
+            if has_value:
+                return BYTES_CATALOG.unpack_partial(
+                    get_concrete_type(module, type_), buffer
+                )
+            else:
+                return None
+
+        @classmethod
+        def _to_bytes_partial(cls, buffer, obj, **kwargs):
+            concrete_type = get_concrete_type(module, type_)
+
+            old_len = buffer.tell()
+            if obj is None:
+                BYTES_CATALOG.pack_partial(U32, buffer, 0)
+            else:
+                BYTES_CATALOG.pack_partial(U32, buffer, 1)
+                BYTES_CATALOG.pack_partial(
+                    get_concrete_type(module, type_), buffer, obj
+                )
+
+            new_len = buffer.tell()
+            diff = BYTES_CATALOG.calc_max_size(concrete_type) - (new_len - old_len - 4)
+            buffer.write(b"\x00" * diff)
+
+    _COptional.__name__ = f"{name}[{type_}]"
+    _COptional.__qualname__ = _COptional.__name__
+
+    return _COptional
+
+
+COptional = _GetitemToCall("COptional", _coptional)

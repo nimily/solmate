@@ -53,7 +53,7 @@ function token_program() {
     --root-dir $SOLMATE_ROOT \
     --addrs ${ADDRESSES[@]} \
     --default-accounts ${DEFAULT_ACCOUNTS[@]} \
-    --instruction-tag "incremental:U32"
+    --instruction-tag "incremental:U8"
   exit_code=$?
   cd ..
   return $exit_code
