@@ -79,7 +79,7 @@ class InstructionCodeGen:
 
         return accounts
 
-    def get_default_account(self, editor, account_name):
+    def get_default_account(self, editor, account, account_name):
         default_account = self.codegen.default_accounts.get(account_name, None)
         if default_account is not None:
             if isinstance(default_account, (str, PublicKey)):
@@ -234,7 +234,7 @@ class InstructionCodeGen:
         editor.add_from_import("typing", "Union")
         meta_type = "Union[str, PublicKey, AccountMeta]"
         for account, account_name in self.instr_accounts:
-            default_account = self.get_default_account(editor, account_name)
+            default_account = self.get_default_account(editor, account, account_name)
 
             if account.is_array:
                 inner_type = f"List[{meta_type}]"
@@ -261,7 +261,7 @@ class InstructionCodeGen:
             else:
                 args_with_default.append((arg.py_name, arg_type, arg_value))
 
-        program_id = self.get_default_account(editor, "program_id")
+        program_id = self.get_default_account(editor, None, "program_id")
         if program_id is None:
             args_without_default.append(("program_id", "PublicKey"))
         else:

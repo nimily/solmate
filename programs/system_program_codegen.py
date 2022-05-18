@@ -8,7 +8,7 @@ from solmate.utils import camel_to_snake
 
 
 class SystemProgramInstructionCodeGen(InstructionCodeGen):
-    def get_default_account(self, editor, account_name):
+    def get_default_account(self, editor, account, account_name):
         if self.instr_name == "transfer_with_seed" and account_name == "base_pubkey":
             # transfer_with_seed doesn't have "base" arg!!!
             return None
@@ -16,7 +16,7 @@ class SystemProgramInstructionCodeGen(InstructionCodeGen):
         if account_name in ("base_pubkey", "derived_pubkey"):
             return "None"
 
-        return super().get_default_account(editor, account_name)
+        return super().get_default_account(editor, account, account_name)
 
     def generate_ix_func_key_preprocessor(self, account, prefix):
         code = ["\n"]
