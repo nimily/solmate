@@ -45,6 +45,11 @@ class TokenProgramInstructionCodeGen(InstructionCodeGen):
 
         return accounts
 
+    def get_default_value(self, editor, arg):
+        if arg.type.is_a(IdlType.OPTION):
+            return "None"
+        return super().get_default_value(editor, arg)
+
     def generate_ix_func_key_preprocessor(self, account, account_name):
         metadata = account.metadata or {}
         if metadata.get(ALLOW_MULTISIG_KEY, False):
@@ -111,11 +116,13 @@ class TokenProgramCodeGen(CodeGen):
             )
 
             if within_types:
+                editor.add_from_import("podite", "Static")
                 editor.add_from_import("solmate.dtypes", "COptional")
-                return f"COptional[{inner_type}]"
+                return f"Static[COptional[{inner_type}]]"
             else:
+                editor.add_from_import("podite", "Static")
                 editor.add_from_import("typing", "Optional")
-                return f"Optional[{inner_type}]"
+                return f"Static[Optional[{inner_type}]]"
 
         return super().get_type_as_string(
             field_type, editor, within_types, explicit_forward_ref

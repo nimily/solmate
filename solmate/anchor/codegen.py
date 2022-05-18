@@ -92,6 +92,9 @@ class InstructionCodeGen:
             return expr
         return None
 
+    def get_default_value(self, editor, arg):
+        return None
+
     def generate_ix_cls_declaration(self):
         instr_name = self.instr_name
         self.module_editor.add_from_import(
@@ -252,7 +255,11 @@ class InstructionCodeGen:
 
         for arg in instr.args:
             arg_type = codegen.get_type_as_string(arg.type, editor, within_types=False)
-            args_without_default.append((arg.py_name, arg_type))
+            arg_value = self.get_default_value(editor, arg)
+            if arg_value is None:
+                args_without_default.append((arg.py_name, arg_type))
+            else:
+                args_with_default.append((arg.py_name, arg_type, arg_value))
 
         program_id = self.get_default_account(editor, "program_id")
         if program_id is None:
