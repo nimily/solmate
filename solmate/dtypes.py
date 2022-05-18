@@ -84,7 +84,7 @@ def _coptional(name, type_: Type):
     class _COptional(Enum[U32]):
         @classmethod
         def _is_static(cls) -> bool:
-            return True
+            return False
 
         @classmethod
         def _calc_size(cls, obj, **kwargs):
@@ -106,9 +106,6 @@ def _coptional(name, type_: Type):
 
         @classmethod
         def _to_bytes_partial(cls, buffer, obj, **kwargs):
-            concrete_type = get_concrete_type(module, type_)
-
-            old_len = buffer.tell()
             if obj is None:
                 BYTES_CATALOG.pack_partial(U32, buffer, 0)
             else:
@@ -116,10 +113,6 @@ def _coptional(name, type_: Type):
                 BYTES_CATALOG.pack_partial(
                     get_concrete_type(module, type_), buffer, obj
                 )
-
-            new_len = buffer.tell()
-            diff = BYTES_CATALOG.calc_max_size(concrete_type) - (new_len - old_len - 4)
-            buffer.write(b"\x00" * diff)
 
     _COptional.__name__ = f"{name}[{type_}]"
     _COptional.__qualname__ = _COptional.__name__

@@ -9,6 +9,7 @@ python = "^3.9"
 argparse = "^1.4.0"
 podite = {git = "git@github.com:nimily/podite.git", rev = "main"}
 solana = "^0.23.3"
+base58 = "^2.1.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "6.2.5"

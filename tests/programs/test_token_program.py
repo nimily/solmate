@@ -79,7 +79,4 @@ def test_initialize_mint__without_freeze_authority():
              b"\x00\x00\x00\x00\x00\x00",
     )
 
-    print(actual.data)
-    print(expect.data)
-
     assert_ix_equal(expect, actual)
