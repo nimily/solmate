@@ -308,7 +308,7 @@ class InstructionCodeGen:
         code = []
         for account, prefix in self.instr_accounts:
             code += self.generate_ix_func_key_preprocessor(account, prefix)
-        code.append("\n")
+            code.append("\n")
         return code
 
     def generate_ix_func_return_obj(self):
