@@ -1,11 +1,10 @@
 from typing import Dict, Set, Callable, Literal
 
 from solmate.anchor import CodeGen
-from solmate.anchor.codegen import InstructionCodeGen, usize_type
+from solmate.anchor.codegen import InstructionCodeGen, usize_type, AccountsCodeGen
 from solmate.anchor.editor import CodeEditor
 from solmate.anchor.idl import Idl, IdlAccount, IdlType
-from solmate.utils import camel_to_snake
-
+from solmate.utils import camel_to_snake, pascal_to_snake
 
 ALLOW_MULTISIG_KEY = "allowMultisig"
 
@@ -103,9 +102,36 @@ class TokenProgramInstructionCodeGen(InstructionCodeGen):
         )
 
 
+class TokenProgramAccountsCodeGen(AccountsCodeGen):
+    def generate_accounts_cls_packing_logic(self):
+        code = [
+            "\n",
+            "    @classmethod\n",
+            "    def _from_bytes_partial(cls, buffer, **kwargs):\n",
+            "        account_len = buffer.getbuffer().nbytes - buffer.tell()\n",
+        ]
+
+        self.module_editor.add_from_import("podite", "BYTES_CATALOG")
+        for account in self.accounts:
+            variant = pascal_to_snake(account.name).upper()
+            code += [
+                f"        if account_len == {account.name}.calc_max_size():\n",
+                f"            obj = BYTES_CATALOG.unpack_partial({account.name}, buffer)\n",
+                f"            return Accounts.{variant}(obj)\n",
+                f"\n",
+            ]
+
+        return code
+
+
 class TokenProgramCodeGen(CodeGen):
     def generate_instruction(self, module_editor, instr):
         return TokenProgramInstructionCodeGen(self, module_editor, instr).generate()
+
+    def generate_accounts(self):
+        return TokenProgramAccountsCodeGen(
+            self, self._package_editor, self.idl.accounts
+        ).generate()
 
     def get_type_as_string(
         self, field_type, editor, within_types, explicit_forward_ref=False
