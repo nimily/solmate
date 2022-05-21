@@ -724,16 +724,17 @@
       ]
     }
   ],
-  "types": [
+  "accounts": [
     {
       "name": "Mint",
-      "repr": "C",
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "mintAuthority",
-            "type": "publicKey"
+            "type": {
+              "option": "publicKey"
+            }
           },
           {
             "name": "supply",
@@ -749,7 +750,9 @@
           },
           {
             "name": "freezeAuthority",
-            "type": "publicKey"
+            "type": {
+              "option": "publicKey"
+            }
           }
         ]
       }
@@ -800,24 +803,6 @@
       }
     },
     {
-      "name": "AccountState",
-      "repr": "u8",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Uninitialized"
-          },
-          {
-            "name": "Initialized"
-          },
-          {
-            "name": "Frozen"
-          }
-        ]
-      }
-    },
-    {
       "name": "Multisig",
       "repr": "C",
       "type": {
@@ -840,6 +825,26 @@
             "type": {
               "array": ["publicKey", 2]
             }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "AccountState",
+      "repr": "u8",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Uninitialized"
+          },
+          {
+            "name": "Initialized"
+          },
+          {
+            "name": "Frozen"
           }
         ]
       }
