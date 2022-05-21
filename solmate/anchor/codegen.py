@@ -712,8 +712,18 @@ class CodeGen:
 
             else:
                 editor.add_from_import("podite", "Enum")
-                editor.add_from_import("podite", "AutoTagType")
-                class_code += [f"class {type_def.name}(Enum[AutoTagType]):\n"]
+
+                metadata = type_def.metadata or {}
+                tag_type = metadata.get("repr", None)
+                if tag_type is None:
+                    tag_type = "AutoTagType"
+                elif tag_type in ["u8", "u16", "u32", "u64", "u128"]:
+                    tag_type = tag_type.upper()
+                else:
+                    raise ValueError(f"Unknown tag type {tag_type}")
+
+                editor.add_from_import("podite", tag_type)
+                class_code += [f"class {type_def.name}(Enum[{tag_type}]):\n"]
                 variants = type_def.type.field.variants
                 for variant in variants:
                     if variant.fields is None:
