@@ -18,6 +18,48 @@ from .idl import (
 )
 
 
+def add_packing_methods(editor, is_struct):
+    # this allows IDE's to give better autocomplete for these methods
+    # (otherwise, there is no need to add these.)
+    if is_struct:
+        pass
+        # editor.add_lines(
+        #     "\n",
+        #     "    @classmethod\n",
+        #     "    def _to_bytes_partial(cls, buffer, obj):\n",
+        #     "        # to modify packing, change this method\n",
+        #     "        return super()._to_bytes_partial(buffer, obj)\n",
+        #     "\n",
+        #     "    @classmethod\n",
+        #     "    def _from_bytes_partial(cls, buffer):\n",
+        #     "        # to modify unpacking, change this method\n",
+        #     "        return super()._from_bytes_partial(buffer)\n",
+        # )
+    else:
+        editor.add_lines(
+            "\n",
+            "    @classmethod\n",
+            "    def _to_bytes_partial(cls, buffer, obj, **kwargs):\n",
+            "        # to modify packing, change this method\n",
+            "        return super()._to_bytes_partial(buffer, obj, **kwargs)\n",
+            "\n",
+            "    @classmethod\n",
+            "    def _from_bytes_partial(cls, buffer, **kwargs):\n",
+            "        # to modify unpacking, change this method\n",
+            "        return super()._from_bytes_partial(buffer, **kwargs)\n",
+        )
+
+    editor.add_lines(
+        "\n" "    @classmethod\n",
+        "    def to_bytes(cls, obj, **kwargs):\n",
+        '        return cls.pack(obj, converter="bytes", **kwargs)\n',
+        "\n",
+        "    @classmethod\n",
+        "    def from_bytes(cls, raw, **kwargs):\n",
+        '        return cls.unpack(raw, converter="bytes", **kwargs)\n',
+    )
+
+
 class InstructionCodeGen:
     codegen: "CodeGen"
     editor: "CodeEditor"
@@ -359,6 +401,106 @@ class InstructionCodeGen:
         self.editor.set_with_lock(f"ix_fn({self.instr_name})", ix_func)
 
 
+class AccountsCodeGen:
+    codegen: "CodeGen"
+    editor: "CodeEditor"
+    module_editor: "CodeEditor"
+    package_editor: "CodeEditor"
+    accounts: Vec[IdlTypeDefinition]
+
+    def __init__(
+        self,
+        codegen: "CodeGen",
+        package_editor: CodeEditor,
+        accounts: Vec[IdlTypeDefinition],
+    ):
+        self.codegen = codegen
+        self.module_editor = codegen.get_editor(f"{codegen.root_module}.accounts")
+        self.package_editor = package_editor
+        self.accounts = accounts
+
+    def generate_accounts_cls_declaration(self):
+        editor = self.module_editor
+
+        editor.add_from_import("podite", "pod")
+        editor.add_from_import("podite", "Enum")
+
+        base = None
+
+        if self.codegen.accnt_tag_values == "anchor":
+            editor.add_from_import("podite", "U64")
+            editor.add_from_import("solmate.anchor", "AccountDiscriminant")
+            base = "Enum[U64]"
+
+        elif self.codegen.accnt_tag_values is not None:
+            tag_type = self.codegen.accnt_tag_values.split(":")[1]
+            editor.add_from_import("podite", "Variant")
+            editor.add_from_import("podite", tag_type)
+            base = f"Enum[{tag_type}]"
+
+        return [
+            "@pod\n",
+            f"class Accounts({base}):\n",
+        ]
+
+    def generate_accounts_cls_variants(self):
+        editor = self.module_editor
+
+        editor.add_from_import("podite", "pod")
+        editor.add_from_import("podite", "Enum")
+
+        variant_type = None
+
+        if self.codegen.accnt_tag_values == "anchor":
+            editor.add_from_import("podite", "U64")
+            editor.add_from_import("solmate.anchor", "AccountDiscriminant")
+            variant_type = "AccountDiscriminant"
+
+        elif self.codegen.accnt_tag_values is not None:
+            tag_type = self.codegen.accnt_tag_values.split(":")[1]
+            editor.add_from_import("podite", "Variant")
+            editor.add_from_import("podite", tag_type)
+            variant_type = "Variant"
+
+        code = []
+        for account in self.accounts:
+            editor.add_from_import(
+                f"{self.codegen.root_module}.types.{pascal_to_snake(account.name)}",
+                account.name,
+            )
+
+            variant_name = pascal_to_snake(account.name).upper()
+            variant_inst = f"{variant_type}(field={account.name})"
+            code += [f"    {variant_name} = {variant_inst}\n"]
+
+        return code
+
+    def generate_accounts_cls_packing_logic(self):
+        return []
+
+    def generate_accounts_cls_packing_methods(self):
+        add_packing_methods(self.module_editor, is_struct=True)
+
+    def generate_accounts_cls(self):
+        code = self.generate_accounts_cls_declaration()
+        code += self.generate_accounts_cls_variants()
+        code += self.generate_accounts_cls_packing_logic()
+
+        if self.module_editor.set_with_lock("accounts", code):
+            self.generate_accounts_cls_packing_methods()
+
+    def generate(self):
+        codegen = self.codegen
+
+        if not codegen.idl.accounts or codegen.accnt_tag_values is None:
+            return
+
+        self.generate_accounts_cls()
+        self.package_editor.add_import(
+            f"{self.codegen.root_module}.accounts", "accounts"
+        )
+
+
 class CodeGen:
     """
     Codegen is instantiated for each idl file and generates a client based off that idl.
@@ -464,48 +606,6 @@ class CodeGen:
             self._editors[name].load()
 
         return self._editors[name]
-
-    @staticmethod
-    def _add_packing_methods(editor, is_struct):
-        # this allows IDE's to give better autocomplete for these methods
-        # (otherwise, there is no need to add these.)
-        if is_struct:
-            pass
-            # editor.add_lines(
-            #     "\n",
-            #     "    @classmethod\n",
-            #     "    def _to_bytes_partial(cls, buffer, obj):\n",
-            #     "        # to modify packing, change this method\n",
-            #     "        return super()._to_bytes_partial(buffer, obj)\n",
-            #     "\n",
-            #     "    @classmethod\n",
-            #     "    def _from_bytes_partial(cls, buffer):\n",
-            #     "        # to modify unpacking, change this method\n",
-            #     "        return super()._from_bytes_partial(buffer)\n",
-            # )
-        else:
-            editor.add_lines(
-                "\n",
-                "    @classmethod\n",
-                "    def _to_bytes_partial(cls, buffer, obj, **kwargs):\n",
-                "        # to modify packing, change this method\n",
-                "        return super()._to_bytes_partial(buffer, obj, **kwargs)\n",
-                "\n",
-                "    @classmethod\n",
-                "    def _from_bytes_partial(cls, buffer, **kwargs):\n",
-                "        # to modify unpacking, change this method\n",
-                "        return super()._from_bytes_partial(buffer, **kwargs)\n",
-            )
-
-        editor.add_lines(
-            "\n" "    @classmethod\n",
-            "    def to_bytes(cls, obj, **kwargs):\n",
-            '        return cls.pack(obj, converter="bytes", **kwargs)\n',
-            "\n",
-            "    @classmethod\n",
-            "    def from_bytes(cls, raw, **kwargs):\n",
-            '        return cls.unpack(raw, converter="bytes", **kwargs)\n',
-        )
 
     def get_type_as_string(
         self, field_type, editor, within_types, explicit_forward_ref=False
@@ -673,7 +773,7 @@ class CodeGen:
                     class_code += ["    pass\n"]
 
             if editor.set_with_lock(f"class({type_def.name})", class_code):
-                self._add_packing_methods(
+                add_packing_methods(
                     editor, type_def.type.is_a(IdlTypeDefinitionTy.STRUCT)
                 )
 
@@ -710,51 +810,7 @@ class CodeGen:
         self._package_editor.add_import(f"{self.root_module}.constants", "constants")
 
     def generate_accounts(self):
-        if not self.idl.accounts or self.accnt_tag_values is None:
-            return
-
-        editor = self.get_editor(f"{self.root_module}.accounts")
-        code = []
-
-        editor.add_from_import("podite", "pod")
-        editor.add_from_import("podite", "Enum")
-
-        base = None
-        variant_type = None
-
-        if self.accnt_tag_values == "anchor":
-            editor.add_from_import("podite", "U64")
-            editor.add_from_import("solmate.anchor", "AccountDiscriminant")
-            base = "Enum[U64]"
-            variant_type = "AccountDiscriminant"
-
-        elif self.accnt_tag_values is not None:
-            tag_type = self.accnt_tag_values.split(":")[1]
-            editor.add_from_import("podite", "Variant")
-            editor.add_from_import("podite", tag_type)
-            base = f"Enum[{tag_type}]"
-            variant_type = "Variant"
-
-        code.extend(
-            [
-                "@pod\n",
-                f"class Accounts({base}):\n",
-            ]
-        )
-        for account in self.idl.accounts:
-            editor.add_from_import(
-                f"{self.root_module}.types.{pascal_to_snake(account.name)}",
-                account.name,
-            )
-
-            variant_name = pascal_to_snake(account.name).upper()
-            variant_inst = f"{variant_type}(field={account.name})"
-            code += [f"    {variant_name} = {variant_inst}\n"]
-
-        if editor.set_with_lock("accounts", code):
-            self._add_packing_methods(editor, is_struct=True)
-
-        self._package_editor.add_import(f"{self.root_module}.accounts", "accounts")
+        return AccountsCodeGen(self, self._package_editor, self.idl.accounts).generate()
 
     def generate_instruction(self, module_editor, instr):
         return InstructionCodeGen(self, module_editor, instr).generate()
