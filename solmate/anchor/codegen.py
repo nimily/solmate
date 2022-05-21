@@ -415,7 +415,7 @@ class AccountsCodeGen:
         accounts: Vec[IdlTypeDefinition],
     ):
         self.codegen = codegen
-        self.module_editor = codegen.get_editor(f"{codegen.root_module}.accounts")
+        self.module_editor = None
         self.package_editor = package_editor
         self.accounts = accounts
 
@@ -495,6 +495,7 @@ class AccountsCodeGen:
         if not codegen.idl.accounts or codegen.accnt_tag_values is None:
             return
 
+        self.module_editor = codegen.get_editor(f"{codegen.root_module}.accounts")
         self.generate_accounts_cls()
         self.package_editor.add_import(
             f"{self.codegen.root_module}.accounts", "accounts"
