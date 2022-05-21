@@ -759,7 +759,6 @@
     },
     {
       "name": "Account",
-      "repr": "C",
       "type": {
         "kind": "struct",
         "fields": [
@@ -777,7 +776,9 @@
           },
           {
             "name": "delegate",
-            "type": "publicKey"
+            "type": {
+              "option": "publicKey"
+            }
           },
           {
             "name": "state",
@@ -797,14 +798,15 @@
           },
           {
             "name": "closeAuthority",
-            "type": "publicKey"
+            "type": {
+              "option": "publicKey"
+            }
           }
         ]
       }
     },
     {
       "name": "Multisig",
-      "repr": "C",
       "type": {
         "kind": "struct",
         "fields": [
@@ -833,7 +835,6 @@
   "types": [
     {
       "name": "AccountState",
-      "repr": "u8",
       "type": {
         "kind": "enum",
         "variants": [
@@ -847,6 +848,9 @@
             "name": "Frozen"
           }
         ]
+      },
+      "metadata": {
+        "repr": "u8"
       }
     },
     {
@@ -868,6 +872,9 @@
             "name": "CloseAccount"
           }
         ]
+      },
+      "metadata": {
+        "repr": "u8"
       }
     }
   ],
