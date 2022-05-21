@@ -729,7 +729,7 @@ class CodeGen:
             variant_type = "AccountDiscriminant"
 
         elif self.accnt_tag_values is not None:
-            tag_type = self.instr_tag_values.split(":")[1]
+            tag_type = self.accnt_tag_values.split(":")[1]
             editor.add_from_import("podite", "Variant")
             editor.add_from_import("podite", tag_type)
             base = f"Enum[{tag_type}]"
