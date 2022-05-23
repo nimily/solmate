@@ -2,6 +2,7 @@
 from podite import (
     Enum,
     U8,
+    Variant,
     pod,
 )
 
@@ -11,9 +12,9 @@ from podite import (
 # LOCK-BEGIN[class(AccountState)]: DON'T MODIFY
 @pod
 class AccountState(Enum[U8]):
-    UNINITIALIZED = None
-    INITIALIZED = None
-    FROZEN = None
+    UNINITIALIZED = Variant(0)
+    INITIALIZED = Variant(1)
+    FROZEN = Variant(2)
     # LOCK-END
 
     @classmethod

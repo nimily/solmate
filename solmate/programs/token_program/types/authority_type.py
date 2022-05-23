@@ -2,6 +2,7 @@
 from podite import (
     Enum,
     U8,
+    Variant,
     pod,
 )
 
@@ -11,10 +12,10 @@ from podite import (
 # LOCK-BEGIN[class(AuthorityType)]: DON'T MODIFY
 @pod
 class AuthorityType(Enum[U8]):
-    MINT_TOKENS = None
-    FREEZE_ACCOUNT = None
-    ACCOUNT_OWNER = None
-    CLOSE_ACCOUNT = None
+    MINT_TOKENS = Variant(0)
+    FREEZE_ACCOUNT = Variant(1)
+    ACCOUNT_OWNER = Variant(2)
+    CLOSE_ACCOUNT = Variant(3)
     # LOCK-END
 
     @classmethod

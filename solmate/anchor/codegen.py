@@ -726,11 +726,19 @@ class CodeGen:
                 editor.add_from_import("podite", tag_type)
                 class_code += [f"class {type_def.name}(Enum[{tag_type}]):\n"]
                 variants = type_def.type.field.variants
-                for variant in variants:
+                is_flags = metadata.get("flags", False)
+                for i, variant in enumerate(variants):
+                    if is_flags:
+                        variant_value = f"2 ** {i}"
+                    else:
+                        variant_value = f"{i}"
+
+                    variant_field = None
+
                     if variant.fields is None:
-                        variant_type = "None"
+                        pass
+
                     elif variant.fields.is_a(EnumFields.NAMED):
-                        editor.add_from_import("podite", "Variant")
                         editor.add_from_import("podite", "named_fields")
                         editor.add_from_import("podite", "Option")
 
@@ -745,17 +753,13 @@ class CodeGen:
                             )
                             named_fields.append(f"{field_name}={field_type}")
 
-                        if len(named_fields) == 0:
-                            variant_type = "None"
-                        else:
-                            variant_type = (
-                                "Variant(field=named_fields("
+                        if len(named_fields) > 0:
+                            variant_field = (
+                                "field=named_fields("
                                 + ", ".join(named_fields)
-                                + "))"
+                                + ")"
                             )
                     else:
-                        editor.add_from_import("podite", "Variant")
-
                         tuple_fields = []
                         for field_type in variant.fields.field:
                             tuple_fields.append(
@@ -767,17 +771,21 @@ class CodeGen:
                                 )
                             )
 
-                        if len(tuple_fields) == 0:
-                            variant_type = "None"
-                        elif len(tuple_fields) == 1:
-                            variant_type = "Variant(field=" + tuple_fields[0] + ")"
-                        else:
+                        if len(tuple_fields) == 1:
+                            variant_field = tuple_fields[0]
+                        elif len(tuple_fields) > 1:
                             editor.add_from_import("typing", "Tuple")
-                            variant_type = (
-                                "Variant(field=Tuple[" + ", ".join(tuple_fields) + "])"
-                            )
+                            variant_field = "Tuple[" + ", ".join(tuple_fields) + "]"
 
                     variant_name = pascal_to_snake(variant.name).upper()
+                    variant_params = []
+                    if variant_value is not None:
+                        variant_params.append(variant_value)
+                    if variant_field is not None:
+                        variant_params.append(variant_field)
+
+                    editor.add_from_import("podite", "Variant")
+                    variant_type = "Variant(" + ", ".join(variant_params) + ")"
                     class_code += [f"    {variant_name} = {variant_type}\n"]
 
                 if not variants:
