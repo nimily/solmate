@@ -1,3 +1,4 @@
+from io import BytesIO
 from typing import Type
 
 from podite import U32, U64, I64, Enum, Variant, Option, pod, BYTES_CATALOG
@@ -87,10 +88,6 @@ def _coptional(name, type_: Type):
             return False
 
         @classmethod
-        def _calc_size(cls, obj, **kwargs):
-            return cls._calc_max_size()
-
-        @classmethod
         def _calc_max_size(cls):
             return 4 + BYTES_CATALOG.calc_max_size(get_concrete_type(module, type_))
 
@@ -121,3 +118,79 @@ def _coptional(name, type_: Type):
 
 
 COptional = _GetitemToCall("COptional", _coptional)
+
+
+class Repeat:
+    def __class_getitem__(
+        cls, type_: Type, max_len=0, allow_remainder=False, ring=True
+    ):
+        module = get_calling_module()
+
+        @pod(dataclass_fn=None)
+        class _Repeat:
+            payload: bytes
+            elem_size: int
+
+            @classmethod
+            def _is_static(cls) -> bool:
+                return False
+
+            @classmethod
+            def _calc_max_size(cls):
+                if max_len == 0:
+                    return 2 ** 32
+                return (
+                    BYTES_CATALOG.calc_max_size(get_concrete_type(module, type_))
+                    * max_len
+                )
+
+            @classmethod
+            def _from_bytes_partial(cls, buffer, **kwargs):
+                obj = _Repeat()
+                obj.payload = buffer.read()
+                obj.elem_size = BYTES_CATALOG.calc_max_size(
+                    get_concrete_type(module, type_)
+                )
+
+                if not allow_remainder and len(obj.payload) % obj.elem_size != 0:
+                    raise RuntimeError(
+                        "Remainder is not allowed but payload has remainder"
+                    )
+
+                if max_len > 0 and max_len * obj.elem_size > len(obj.payload):
+                    raise RuntimeError(
+                        f"Repeat cannot have more than {max_len} elements"
+                    )
+
+                return obj
+
+            @classmethod
+            def _to_bytes_partial(cls, buffer, obj, **kwargs):
+                raise NotImplementedError()
+
+            @property
+            def n_elem(self):
+                return len(self.payload) // self.elem_size
+
+            def __getitem__(self, item):
+                n_elem = self.n_elem
+                if not ring:
+                    if item < 0 or item >= n_elem:
+                        raise ValueError(
+                            f"Can only look up items in the range 0..{n_elem}"
+                        )
+                else:
+                    item = item % n_elem
+
+                start = item * self.elem_size
+                end = (item + 1) * self.elem_size
+                buffer = BytesIO(self.payload[start:end])
+
+                return BYTES_CATALOG.unpack_partial(
+                    get_concrete_type(module, type_), buffer
+                )
+
+        _Repeat.__name__ = f"Repeat[{type_}]"
+        _Repeat.__qualname__ = _Repeat.__name__
+
+        return _Repeat
